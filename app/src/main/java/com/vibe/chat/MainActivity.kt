@@ -1,229 +1,244 @@
+
 package com.vibe.chat
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private val Dark = Color(0xFF090B16)
-private val Card = Color(0xFF171A2B)
-private val Purple = Color(0xFF9B5CFF)
-private val Blue = Color(0xFF45E5FF)
-private val White = Color(0xFFF7F5FF)
-private val Gray = Color(0xFF9CA3BF)
+import com.google.firebase.FirebaseException
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.PhoneAuthOptions
+import com.google.firebase.auth.PhoneAuthProvider
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var auth: FirebaseAuth
+    private var verificationId by mutableStateOf<String?>(null)
+    private var status by mutableStateOf("")
+    private var busy by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        auth = FirebaseAuth.getInstance()
+
         setContent {
-            MaterialTheme {
-                VibeApp()
-            }
+            VibeLogin(
+                status = status,
+                busy = busy,
+                onSendCode = { phone -> sendCode(phone) },
+                onVerifyCode = { code -> verifyCode(code) }
+            )
         }
+    }
+
+    private fun sendCode(phone: String) {
+        if (phone.isBlank() || !phone.startsWith("+")) {
+            status = "Введи номер с кодом страны, например +1..."
+            return
+        }
+
+        busy = true
+        status = "Проверяем номер..."
+
+        val options = PhoneAuthOptions.newBuilder(auth)
+            .setPhoneNumber(phone.trim())
+            .setTimeout(60L, TimeUnit.SECONDS)
+            .setActivity(this)
+            .setCallbacks(object :
+                PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+
+                override fun onVerificationCompleted(
+                    credential: com.google.firebase.auth.PhoneAuthCredential
+                ) {
+                    auth.signInWithCredential(credential)
+                        .addOnCompleteListener { task ->
+                            busy = false
+                            status = if (task.isSuccessful) {
+                                "Успешный вход! Добро пожаловать в VIBE CHAT 💜"
+                            } else {
+                                "Не удалось войти: ${task.exception?.localizedMessage}"
+                            }
+                        }
+                }
+
+                override fun onVerificationFailed(e: FirebaseException) {
+                    busy = false
+                    status = "Ошибка: ${e.localizedMessage ?: "проверь номер и Firebase"}"
+                }
+
+                override fun onCodeSent(
+                    id: String,
+                    token: PhoneAuthProvider.ForceResendingToken
+                ) {
+                    verificationId = id
+                    busy = false
+                    status = "Код запрошен. Введи код из SMS или тестовый код Firebase."
+                }
+            })
+            .build()
+
+        PhoneAuthProvider.verifyPhoneNumber(options)
+    }
+
+    private fun verifyCode(code: String) {
+        val id = verificationId
+
+        if (id == null) {
+            status = "Сначала запроси код."
+            return
+        }
+
+        if (code.length != 6) {
+            status = "Код должен содержать 6 цифр."
+            return
+        }
+
+        busy = true
+        status = "Проверяем код..."
+
+        val credential = PhoneAuthProvider.getCredential(id, code)
+
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener { task ->
+                busy = false
+                status = if (task.isSuccessful) {
+                    "Ты вошёл в VIBE CHAT! 💜"
+                } else {
+                    "Ошибка входа: ${task.exception?.localizedMessage ?: "неверный код"}"
+                }
+            }
     }
 }
 
 @Composable
-fun VibeApp() {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Dark
-    ) {
-        Column(
+fun VibeLogin(
+    status: String,
+    busy: Boolean,
+    onSendCode: (String) -> Unit,
+    onVerifyCode: (String) -> Unit
+) {
+    var phone by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+
+    val background = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF100B25),
+            Color(0xFF211044),
+            Color(0xFF071B30)
+        )
+    )
+
+    MaterialTheme {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
-        ) {
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "VIBE",
-                        color = White,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 5.sp
-                    )
-
-                    Text(
-                        text = "ТВОЙ МИР. ТВОЙ РИТМ.",
-                        color = Blue,
-                        fontSize = 10.sp,
-                        letterSpacing = 2.sp
-                    )
-                }
-
-                Surface(
-                    modifier = Modifier.size(52.dp),
-                    shape = CircleShape,
-                    color = Purple
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "V",
-                            color = White,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(35.dp))
-
-            Text(
-                text = "Сообщения",
-                color = White,
-                fontSize = 27.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Твои люди всегда рядом",
-                color = Gray,
-                fontSize = 14.sp
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            ChatItem("А", "Алина", "Привет! Как дела? ✨", "12:48")
-            ChatItem("М", "Максим", "Посмотри это видео 🔥", "12:32")
-            ChatItem("Д", "Друзья 💜", "Олег: Всем привет!", "11:56")
-            ChatItem("С", "Саша", "До скорой встречи!", "10:21")
-            ChatItem("V", "Vibe Team", "Добро пожаловать!", "Вчера")
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 20.dp),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                BottomItem("💬", "Чаты", true)
-                BottomItem("📞", "Звонки", false)
-                BottomItem("👥", "Контакты", false)
-                BottomItem("👤", "Профиль", false)
-            }
-        }
-    }
-}
-
-@Composable
-fun ChatItem(
-    avatar: String,
-    name: String,
-    message: String,
-    time: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .background(Card, RoundedCornerShape(18.dp))
-            .padding(13.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            modifier = Modifier.size(49.dp),
-            shape = CircleShape,
-            color = Purple
+                .background(background)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
+                Text("VIBE", color = Color(0xFFB99AFF),
+                    fontSize = 48.sp, fontWeight = FontWeight.Black)
                 Text(
-                    text = avatar,
-                    color = White,
-                    fontSize = 21.sp,
+                    "CHAT",
+                    color = Color(0xFF62E9FF),
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Твоё общение. Твоя атмосфера.",
+                    color = Color.White,
+                    textAlign = TextAlign.Center
+                )
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Номер с кодом страны") },
+                    placeholder = { Text("+16505553434") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Phone
+                    ),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                )
+
+                Button(
+                    onClick = { onSendCode(phone) },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF8A4DFF)
+                    )
+                ) {
+                    Text("Получить код")
+                }
+
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = {
+                        code = it.filter(Char::isDigit).take(6)
+                    },
+                    label = { Text("Шестизначный код") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                )
+
+                Button(
+                    onClick = { onVerifyCode(code) },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00AFC8)
+                    )
+                ) {
+                    Text("Войти", color = Color.White)
+                }
+
+                if (busy) {
+                    CircularProgressIndicator(color = Color(0xFF62E9FF))
+                }
+
+                if (status.isNotBlank()) {
+                    Text(
+                        status,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        fontSize = 14.sp
+                    )
+                }
+
+                Text(
+                    "Безопасное общение начинается здесь",
+                    color = Color.LightGray,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
                 )
             }
         }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
-        ) {
-            Text(
-                text = name,
-                color = White,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = message,
-                color = Gray,
-                fontSize = 12.sp
-            )
-        }
-
-        Text(
-            text = time,
-            color = Blue,
-            fontSize = 10.sp
-        )
-    }
-}
-
-@Composable
-fun BottomItem(
-    icon: String,
-    label: String,
-    selected: Boolean
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = icon,
-            fontSize = 21.sp
-        )
-
-        Text(
-            text = label,
-            color = if (selected) Blue else Gray,
-            fontSize = 10.sp
-        )
     }
 }
