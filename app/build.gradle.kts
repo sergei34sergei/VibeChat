@@ -1,3 +1,4 @@
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -47,8 +48,11 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
 
+    // Firebase: авторизация по телефону и другим способам
     implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
     implementation("com.google.firebase:firebase-auth")
+
+    // Firebase: хранение данных чатов
     implementation("com.google.firebase:firebase-firestore")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
