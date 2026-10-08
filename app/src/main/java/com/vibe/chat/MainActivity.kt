@@ -4,14 +4,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -20,262 +27,203 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Background = Color(0xFF090B16)
-private val Panel = Color(0xFF15192B)
+private val Dark = Color(0xFF090B16)
+private val Card = Color(0xFF171A2B)
 private val Purple = Color(0xFF9B5CFF)
-private val Cyan = Color(0xFF45E5FF)
-private val White = Color(0xFFF5F5FF)
-private val Muted = Color(0xFF9298B8)
-
-data class Chat(
-    val name: String,
-    val message: String,
-    val time: String,
-    val avatar: String,
-    val unread: Int = 0,
-    val online: Boolean = false
-)
+private val Blue = Color(0xFF45E5FF)
+private val White = Color(0xFFF7F5FF)
+private val Gray = Color(0xFF9CA3BF)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             MaterialTheme {
-                VibeChatApp()
+                VibeApp()
             }
         }
     }
 }
 
 @Composable
-fun VibeChatApp() {
-    var selectedTab by remember { mutableStateOf("Чаты") }
-
-    val chats = listOf(
-        Chat("Алина", "Ты сегодня свободен? ✨", "12:48", "А", 2, true),
-        Chat("Максим", "Скинул тебе видео 🔥", "12:32", "М", 1, true),
-        Chat("Друзья 💜", "Олег: Всем привет!", "11:56", "Д", 0),
-        Chat("Саша", "Отлично, договорились!", "10:21", "С"),
-        Chat("Vibe Team", "Добро пожаловать в Vibe!", "Вчера", "V", 0)
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Background)
-            .padding(horizontal = 20.dp)
+fun VibeApp() {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Dark
     ) {
-        Spacer(Modifier.height(28.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = "VIBE",
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 4.sp,
-                    color = White
-                )
-                Text(
-                    text = "ТВОЙ МИР. ТВОЙ РИТМ.",
-                    fontSize = 10.sp,
-                    letterSpacing = 2.sp,
-                    color = Cyan
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        Brush.linearGradient(listOf(Purple, Cyan)),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("V", fontSize = 24.sp, fontWeight = FontWeight.Black,
-                    color = Background)
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        Text(
-            text = if (selectedTab == "Чаты") "Твои сообщения" else selectedTab,
-            fontSize = 25.sp,
-            fontWeight = FontWeight.Bold,
-            color = White
-        )
-
-        Spacer(Modifier.height(14.dp))
-
-        OutlinedTextField(
-            value = "",
-            onValueChange = {},
-            readOnly = true,
-            placeholder = { Text("Поиск сообщений", color = Muted) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = White,
-                unfocusedTextColor = White,
-                focusedBorderColor = Purple,
-                unfocusedBorderColor = Panel,
-                focusedContainerColor = Panel,
-                unfocusedContainerColor = Panel,
-                focusedPlaceholderColor = Muted,
-                unfocusedPlaceholderColor = Muted
-            ),
-            singleLine = true
-        )
-
-        Spacer(Modifier.height(18.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("Все", "Личные", "Группы").forEach { filter ->
-                Box(
-                    modifier = Modifier
-                        .background(
-                            if (filter == "Все") Purple.copy(alpha = 0.24f) else Panel,
-                            RoundedCornerShape(50)
-                        )
-                        .padding(horizontal = 17.dp, vertical = 10.dp)
-                ) {
-                    Text(filter, color = White, fontSize = 12.sp)
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(chats) { chat ->
-                ChatRow(chat = chat)
-            }
-        }
-
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceAround
+                .fillMaxSize()
+                .padding(horizontal = 20.dp)
         ) {
-            listOf("Чаты", "Звонки", "Контакты", "Профиль").forEach { tab ->
-                Column(
-                    modifier = Modifier
-                        .clickable { selectedTab = tab }
-                        .padding(5.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
                     Text(
-                        text = when (tab) {
-                            "Чаты" -> "💬"
-                            "Звонки" -> "📞"
-                            "Контакты" -> "👥"
-                            else -> "👤"
-                        },
-                        fontSize = 21.sp
+                        text = "VIBE",
+                        color = White,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 5.sp
                     )
+
                     Text(
-                        tab,
-                        color = if (selectedTab == tab) Cyan else Muted,
-                        fontSize = 10.sp
+                        text = "ТВОЙ МИР. ТВОЙ РИТМ.",
+                        color = Blue,
+                        fontSize = 10.sp,
+                        letterSpacing = 2.sp
                     )
                 }
+
+                Surface(
+                    modifier = Modifier.size(52.dp),
+                    shape = CircleShape,
+                    color = Purple
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "V",
+                            color = White,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(35.dp))
+
+            Text(
+                text = "Сообщения",
+                color = White,
+                fontSize = 27.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Твои люди всегда рядом",
+                color = Gray,
+                fontSize = 14.sp
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            ChatItem("А", "Алина", "Привет! Как дела? ✨", "12:48")
+            ChatItem("М", "Максим", "Посмотри это видео 🔥", "12:32")
+            ChatItem("Д", "Друзья 💜", "Олег: Всем привет!", "11:56")
+            ChatItem("С", "Саша", "До скорой встречи!", "10:21")
+            ChatItem("V", "Vibe Team", "Добро пожаловать!", "Вчера")
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 20.dp),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                BottomItem("💬", "Чаты", true)
+                BottomItem("📞", "Звонки", false)
+                BottomItem("👥", "Контакты", false)
+                BottomItem("👤", "Профиль", false)
             }
         }
     }
 }
 
 @Composable
-fun ChatRow(chat: Chat) {
+fun ChatItem(
+    avatar: String,
+    name: String,
+    message: String,
+    time: String
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Panel, RoundedCornerShape(20.dp))
-            .clickable { }
+            .padding(vertical = 5.dp)
+            .background(Card, RoundedCornerShape(18.dp))
             .padding(13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
+        Surface(
+            modifier = Modifier.size(49.dp),
+            shape = CircleShape,
+            color = Purple
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = avatar,
+                    color = White,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Column(
             modifier = Modifier
-                .size(52.dp)
-                .background(
-                    Brush.linearGradient(
-                        listOf(Purple.copy(alpha = 0.8f), Cyan.copy(alpha = 0.65f))
-                    ),
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
+                .weight(1f)
+                .padding(start = 12.dp)
         ) {
             Text(
-                chat.avatar,
+                text = name,
                 color = White,
-                fontSize = 21.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Bold
             )
-        }
 
-        Spacer(Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    chat.name,
-                    color = White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                if (chat.online) {
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        Modifier
-                            .size(6.dp)
-                            .background(Cyan, CircleShape)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(5.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                chat.message,
-                color = Muted,
-                fontSize = 12.sp,
-                maxLines = 1
+                text = message,
+                color = Gray,
+                fontSize = 12.sp
             )
         }
 
-        Spacer(Modifier.width(6.dp))
+        Text(
+            text = time,
+            color = Blue,
+            fontSize = 10.sp
+        )
+    }
+}
 
-        Column(horizontalAlignment = Alignment.End) {
-            Text(chat.time, color = Muted, fontSize = 10.sp)
+@Composable
+fun BottomItem(
+    icon: String,
+    label: String,
+    selected: Boolean
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = icon,
+            fontSize = 21.sp
+        )
 
-            if (chat.unread > 0) {
-                Spacer(Modifier.height(7.dp))
-                Box(
-                    modifier = Modifier
-                        .background(
-                            Brush.linearGradient(listOf(Purple, Cyan)),
-                            CircleShape
-                        )
-                        .padding(horizontal = 7.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        chat.unread.toString(),
-                        color = Background,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
+        Text(
+            text = label,
+            color = if (selected) Blue else Gray,
+            fontSize = 10.sp
+        )
     }
 }
