@@ -1,6 +1,6 @@
 name: Build Vibe Chat APK
 
-on:
+"on":
 workflow_dispatch:
 push:
 branches:
