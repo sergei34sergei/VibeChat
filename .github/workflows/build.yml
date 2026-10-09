@@ -36,7 +36,19 @@ jobs:
             -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
-      - name: Show signing fingerprints
+      - name:       - name: Create debug keystore
+        run: |
+          mkdir -p "$HOME/.config/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.config/.android/debug.keystore" \
+            -storepass android \
+            -keypass android \
+            -alias AndroidDebugKey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+            Show signing fingerprints
         run: gradle :app:signingReport
 
       - name: Build APK
