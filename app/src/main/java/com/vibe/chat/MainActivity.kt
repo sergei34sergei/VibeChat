@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseException
+import com.google.firebase.initialize
+import com.google.firebase.appcheck.appCheck
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
@@ -57,11 +59,11 @@ class MainActivity : ComponentActivity() {
         // Для разработки: App Check должен быть настроен до обращения к Firebase Auth/AI.
         // Отладочный провайдер нельзя использовать в опубликованной версии приложения.
         Firebase.initialize(context = this)
-        if (BuildConfig.DEBUG) {
-            Firebase.appCheck.installAppCheckProviderFactory(
-                DebugAppCheckProviderFactory.getInstance()
-            )
-        }
+        // В этой тестовой сборке используется Debug App Check.
+        // Не публикуй этот вариант в Play Market без настройки production App Check.
+        Firebase.appCheck.installAppCheckProviderFactory(
+            DebugAppCheckProviderFactory.getInstance()
+        )
 
         signedIn = auth.currentUser != null
         userPhone = auth.currentUser?.phoneNumber.orEmpty()
