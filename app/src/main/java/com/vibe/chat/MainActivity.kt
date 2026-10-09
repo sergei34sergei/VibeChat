@@ -311,48 +311,50 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
             TextButton(onClick = onLogout) { Text("Выйти", color = Cyan) }
         }
 
-        when (tab) {
-            "Чат" -> VibeGeneralChat(phone)
-            "Пользователи" -> VibeUsers(
-                db = db,
-                myId = currentUser?.uid.orEmpty(),
-                myName = savedName,
-                onOpenProfile = { tab = "Профиль" }
-            )
-            else -> VibeProfile(
-                phone = phone,
-                savedName = savedName,
-                nameInput = nameInput,
-                onNameChange = { nameInput = it.take(40) },
-                onSave = {
-                    val uid = currentUser?.uid
-                    val cleanName = nameInput.trim()
-                    if (uid != null && cleanName.isNotBlank()) {
-                        profileError = ""
-                        val doc = db.collection("users").document(uid)
-                        val task = if (profileLoaded && savedName.isNotBlank()) {
-                            doc.update("name", cleanName)
-                        } else {
-                            doc.set(
-                                hashMapOf(
-                                    "name" to cleanName,
-                                    "phone" to (currentUser.phoneNumber ?: ""),
-                                    "createdAt" to FieldValue.serverTimestamp()
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when (tab) {
+                "Чат" -> VibeGeneralChat(phone)
+                "Пользователи" -> VibeUsers(
+                    db = db,
+                    myId = currentUser?.uid.orEmpty(),
+                    myName = savedName,
+                    onOpenProfile = { tab = "Профиль" }
+                )
+                else -> VibeProfile(
+                    phone = phone,
+                    savedName = savedName,
+                    nameInput = nameInput,
+                    onNameChange = { nameInput = it.take(40) },
+                    onSave = {
+                        val uid = currentUser?.uid
+                        val cleanName = nameInput.trim()
+                        if (uid != null && cleanName.isNotBlank()) {
+                            profileError = ""
+                            val doc = db.collection("users").document(uid)
+                            val task = if (profileLoaded && savedName.isNotBlank()) {
+                                doc.update("name", cleanName)
+                            } else {
+                                doc.set(
+                                    hashMapOf(
+                                        "name" to cleanName,
+                                        "phone" to (currentUser.phoneNumber ?: ""),
+                                        "createdAt" to FieldValue.serverTimestamp()
+                                    )
                                 )
-                            )
+                            }
+                            task.addOnSuccessListener {
+                                savedName = cleanName
+                                profileError = "Имя сохранено!"
+                            }.addOnFailureListener { e ->
+                                profileError = "Не удалось сохранить: ${e.localizedMessage}"
+                            }
+                        } else {
+                            profileError = "Введи имя."
                         }
-                        task.addOnSuccessListener {
-                            savedName = cleanName
-                            profileError = "Имя сохранено!"
-                        }.addOnFailureListener { e ->
-                            profileError = "Не удалось сохранить: ${e.localizedMessage}"
-                        }
-                    } else {
-                        profileError = "Введи имя."
-                    }
-                },
-                error = profileError
-            )
+                    },
+                    error = profileError
+                )
+            }
         }
 
         NavigationBar(containerColor = Color(0xFF17112A)) {
