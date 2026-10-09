@@ -20,7 +20,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.Firebase
 import com.google.firebase.FirebaseException
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.GenerativeBackend
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthOptions
@@ -32,6 +36,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.launch
 
 private val Purple = Color(0xFF9B6BFF)
 private val Cyan = Color(0xFF62E9FF)
@@ -48,6 +53,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Для разработки: App Check должен быть настроен до обращения к Firebase Auth/AI.
+        // Отладочный провайдер нельзя использовать в опубликованной версии приложения.
+        Firebase.initialize(context = this)
+        if (BuildConfig.DEBUG) {
+            Firebase.appCheck.installAppCheckProviderFactory(
+                DebugAppCheckProviderFactory.getInstance()
+            )
+        }
+
         signedIn = auth.currentUser != null
         userPhone = auth.currentUser?.phoneNumber.orEmpty()
 
@@ -720,38 +735,39 @@ private data class AlexMessage(val fromUser: Boolean, val text: String)
 @Composable
 fun AlexAiScreen() {
     var input by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val model = remember {
+        Firebase.ai(backend = GenerativeBackend.googleAI())
+            .generativeModel("gemini-3.8-flash")
+    }
     var messages by remember {
         mutableStateOf(
             listOf(
                 AlexMessage(
                     false,
-                    "Привет, брат! Я Алекс AI ✨\n\nПока это демонстрационная версия. Можешь написать вопрос или попросить помочь с промптом для фото и видео."
+                    "Привет, брат! Я Алекс AI ✨\n\nЯ подключаюсь к Gemini. Напиши вопрос — постараюсь помочь."
                 )
             )
         )
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)
-    ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(
-            Modifier.fillMaxWidth()
-                .background(Panel, RoundedCornerShape(18.dp))
-                .padding(14.dp),
+            Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(18.dp)).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 Modifier.size(46.dp).background(
-                    Brush.linearGradient(listOf(Purple, Cyan)),
-                    RoundedCornerShape(23.dp)
+                    Brush.linearGradient(listOf(Purple, Cyan)), RoundedCornerShape(23.dp)
                 ),
                 contentAlignment = Alignment.Center
             ) { Text("✨", fontSize = 24.sp) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Алекс AI", color = Color.White, fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold)
-                Text("Демо-режим • ИИ ещё не подключён",
+                Text("Алекс AI", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(if (isLoading) "Gemini думает..." else "Gemini AI • облачный режим",
                     color = Color.LightGray, fontSize = 11.sp)
             }
         }
@@ -767,66 +783,78 @@ fun AlexAiScreen() {
                     horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start
                 ) {
                     Text(
-                        message.text,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        modifier = Modifier.widthIn(max = 310.dp)
-                            .background(
-                                if (message.fromUser) Color(0xFF493078) else Panel,
-                                RoundedCornerShape(18.dp)
-                            )
-                            .padding(horizontal = 14.dp, vertical = 11.dp)
+                        message.text, color = Color.White, fontSize = 14.sp,
+                        modifier = Modifier.widthIn(max = 310.dp).background(
+                            if (message.fromUser) Color(0xFF493078) else Panel,
+                            RoundedCornerShape(18.dp)
+                        ).padding(horizontal = 14.dp, vertical = 11.dp)
                     )
+                }
+            }
+            if (isLoading) item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                    CircularProgressIndicator(Modifier.size(22.dp), color = Cyan, strokeWidth = 2.dp)
                 }
             }
         }
 
+        if (error.isNotBlank()) Text(
+            error, color = Color(0xFFFFA6A6), fontSize = 12.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+        )
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                value = input,
-                onValueChange = { input = it.take(1000) },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Спроси Алекса...") },
-                shape = RoundedCornerShape(18.dp),
+                value = input, onValueChange = { input = it.take(1000) },
+                modifier = Modifier.weight(1f), placeholder = { Text("Спроси Алекса...") },
+                shape = RoundedCornerShape(18.dp), maxLines = 4,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Cyan,
-                    unfocusedBorderColor = Purple,
-                    focusedPlaceholderColor = Color.LightGray,
-                    unfocusedPlaceholderColor = Color.LightGray
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                    focusedBorderColor = Cyan, unfocusedBorderColor = Purple,
+                    focusedPlaceholderColor = Color.LightGray, unfocusedPlaceholderColor = Color.LightGray
                 )
             )
             Spacer(Modifier.width(8.dp))
             Button(
-                enabled = input.isNotBlank(),
+                enabled = input.isNotBlank() && !isLoading,
                 onClick = {
                     val question = input.trim()
-                    val q = question.lowercase(Locale.getDefault())
-                    val answer = when {
-                        listOf("фото", "картин", "изображ").any { q.contains(it) } ->
-                            "Я помогу составить красивый промпт для изображения. Но генерация картинок в приложении пока не подключена — добавим её отдельным этапом."
-                        q.contains("видео") ->
-                            "Могу помочь придумать сцену и написать промпт для видео. Автоматическая генерация видео в Vibe Chat пока не подключена."
-                        listOf("привет", "здравств", "салам").any { q.contains(it) } ->
-                            "Привет, брат! 👋 Я Алекс AI в демо-режиме. Напиши, с чем помочь."
-                        q.contains("промпт") ->
-                            "Напиши, что должно происходить в кадре, какой нужен стиль и формат. Я помогу оформить идею в промпт. Сейчас ответы демонстрационные."
-                        else ->
-                            "Я получил твоё сообщение: «$question».\n\nЭто пока макет: настоящий ИИ ещё не подключён, поэтому я не могу дать полноценный ответ. Следующим шагом подключим AI-сервис через безопасный сервер."
+                    if (question.isNotBlank() && !isLoading) {
+                        messages = messages + AlexMessage(true, question)
+                        input = ""
+                        error = ""
+                        isLoading = true
+                        scope.launch {
+                            try {
+                                val prompt = "Ты Алекс AI — дружелюбный помощник внутри Vibe Chat. " +
+                                    "Отвечай по-русски, понятно и полезно. Помогай писать промпты для фото и видео, " +
+                                    "но не утверждай, что генерация изображений или видео внутри приложения уже доступна, " +
+                                    "если она не подключена.\n\nСообщение пользователя: $question"
+                                val response = model.generateContent(prompt)
+                                val answer = response.text?.takeIf { it.isNotBlank() }
+                                    ?: "Gemini не вернул текст. Попробуй задать вопрос иначе."
+                                messages = messages + AlexMessage(false, answer)
+                            } catch (e: Exception) {
+                                error = "Не удалось получить ответ: ${e.localizedMessage ?: "проверь интернет и настройки Firebase AI Logic"}"
+                                messages = messages + AlexMessage(
+                                    false,
+                                    "Не получилось связаться с Gemini. Проверь интернет, настройку Firebase AI Logic и App Check."
+                                )
+                            } finally {
+                                isLoading = false
+                            }
+                        }
                     }
-                    messages = messages + AlexMessage(true, question) + AlexMessage(false, answer)
-                    input = ""
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Purple),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
-            ) { Text("➤") }
+            ) { Text(if (isLoading) "…" else "➤") }
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "Демонстрационный режим — сообщения не отправляются во внешний ИИ.",
-            color = Color.LightGray, fontSize = 10.sp,
-            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+            "Сообщения отправляются в Gemini для генерации ответов.",
+            color = Color.LightGray, fontSize = 10.sp, textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
