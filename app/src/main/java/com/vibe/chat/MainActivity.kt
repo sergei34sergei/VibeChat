@@ -24,9 +24,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.FirebaseException
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 private val Purple = Color(0xFF9B6BFF)
@@ -35,9 +42,7 @@ private val Dark = Color(0xFF100B25)
 private val Panel = Color(0xFF21183B)
 
 class MainActivity : ComponentActivity() {
-
     private lateinit var auth: FirebaseAuth
-
     private var verificationId by mutableStateOf<String?>(null)
     private var status by mutableStateOf("")
     private var busy by mutableStateOf(false)
@@ -46,7 +51,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         auth = FirebaseAuth.getInstance()
         signedIn = auth.currentUser != null
         userPhone = auth.currentUser?.phoneNumber.orEmpty()
@@ -78,7 +82,6 @@ class MainActivity : ComponentActivity() {
 
     private fun sendCode(phone: String) {
         val number = phone.trim()
-
         if (number.isBlank() || !number.startsWith("+")) {
             status = "Введи номер с кодом страны, например +49123456789"
             return
@@ -93,7 +96,6 @@ class MainActivity : ComponentActivity() {
             .setActivity(this)
             .setCallbacks(object :
                 PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-
                 override fun onVerificationCompleted(
                     credential: com.google.firebase.auth.PhoneAuthCredential
                 ) {
@@ -106,7 +108,7 @@ class MainActivity : ComponentActivity() {
                                 status = ""
                             } else {
                                 status = "Не удалось войти: ${
-                                    task.exception?.localizedMessage ?: "ошибка авторизации"
+                                    task.exception?.localizedMessage ?: "ошибка"
                                 }"
                             }
                         }
@@ -114,7 +116,7 @@ class MainActivity : ComponentActivity() {
 
                 override fun onVerificationFailed(e: FirebaseException) {
                     busy = false
-                    status = "Ошибка: ${e.localizedMessage ?: "проверь номер и Firebase"}"
+                    status = "Ошибка: ${e.localizedMessage ?: "проверь номер"}"
                 }
 
                 override fun onCodeSent(
@@ -123,13 +125,13 @@ class MainActivity : ComponentActivity() {
                 ) {
                     verificationId = id
                     busy = false
-                    status = "Код отправлен. Введи 6 цифр из SMS."
+                    status = "Код отправлен. Введи 6 цифр."
                 }
 
                 override fun onCodeAutoRetrievalTimeOut(id: String) {
                     verificationId = id
                     busy = false
-                    status = "Введи код из SMS вручную."
+                    status = "Введи код вручную."
                 }
             })
             .build()
@@ -139,12 +141,10 @@ class MainActivity : ComponentActivity() {
 
     private fun verifyCode(code: String) {
         val id = verificationId
-
         if (id == null) {
             status = "Сначала нажми «Получить код»."
             return
         }
-
         if (code.length != 6) {
             status = "Код должен содержать 6 цифр."
             return
@@ -152,10 +152,7 @@ class MainActivity : ComponentActivity() {
 
         busy = true
         status = "Проверяем код..."
-
-        val credential = PhoneAuthProvider.getCredential(id, code)
-
-        auth.signInWithCredential(credential)
+        auth.signInWithCredential(PhoneAuthProvider.getCredential(id, code))
             .addOnCompleteListener(this) { task ->
                 busy = false
                 if (task.isSuccessful) {
@@ -180,313 +177,245 @@ fun VibeLogin(
 ) {
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
-
-    val background = Brush.verticalGradient(
-        listOf(Dark, Color(0xFF211044), Color(0xFF071B30))
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedLabelColor = Cyan,
+        unfocusedLabelColor = Color.LightGray,
+        focusedBorderColor = Cyan,
+        unfocusedBorderColor = Purple,
+        focusedPlaceholderColor = Color.LightGray,
+        unfocusedPlaceholderColor = Color.LightGray
     )
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(background)
-            .padding(24.dp),
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Dark, Color(0xFF211044), Color(0xFF071B30)))
+        ).padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("VIBE", color = Color(0xFFB99AFF),
-                fontSize = 48.sp, fontWeight = FontWeight.Black)
-            Text("CHAT", color = Cyan,
-                fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text(
-                "Твоё общение. Твоя атмосфера.",
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+            Text("VIBE", color = Color(0xFFB99AFF), fontSize = 48.sp,
+                fontWeight = FontWeight.Black)
+            Text("CHAT", color = Cyan, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text("Твоё общение. Твоя атмосфера.", color = Color.White,
+                textAlign = TextAlign.Center)
 
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
                 label = { Text("Номер с кодом страны") },
                 placeholder = { Text("+49123456789") },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = fieldColors
             )
 
             Button(
                 onClick = { onSendCode(phone) },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Purple
-                )
-            ) {
-                Text("Получить код")
-            }
+                colors = ButtonDefaults.buttonColors(containerColor = Purple)
+            ) { Text("Получить код") }
 
             OutlinedTextField(
                 value = code,
                 onValueChange = { code = it.filter(Char::isDigit).take(6) },
                 label = { Text("Шестизначный код") },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = fieldColors
             )
 
             Button(
                 onClick = { onVerifyCode(code) },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF00AFC8)
-                )
-            ) {
-                Text("Войти", color = Color.White)
-            }
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AFC8))
+            ) { Text("Войти", color = Color.White) }
 
-            if (busy) {
-                CircularProgressIndicator(color = Cyan)
-            }
-
-            if (status.isNotBlank()) {
-                Text(
-                    status,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    fontSize = 14.sp
-                )
-            }
-
-            Text(
-                "Безопасное общение начинается здесь",
-                color = Color.LightGray,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center
-            )
+            if (busy) CircularProgressIndicator(color = Cyan)
+            if (status.isNotBlank()) Text(status, color = Color.White,
+                textAlign = TextAlign.Center, fontSize = 14.sp)
+            Text("Безопасное общение начинается здесь", color = Color.LightGray,
+                fontSize = 12.sp, textAlign = TextAlign.Center)
         }
     }
 }
 
-private data class ChatPreview(
-    val title: String,
-    val subtitle: String,
-    val emoji: String,
-    val unread: Int = 0
+private data class ChatMessage(
+    val id: String,
+    val authorId: String,
+    val author: String,
+    val text: String,
+    val time: Timestamp?
 )
 
 @Composable
-fun VibeChats(
-    phone: String,
-    onLogout: () -> Unit
-) {
-    var search by remember { mutableStateOf("") }
-    var selectedChat by remember { mutableStateOf<ChatPreview?>(null) }
+fun VibeChats(phone: String, onLogout: () -> Unit) {
+    val auth = remember { FirebaseAuth.getInstance() }
+    val db = remember { FirebaseFirestore.getInstance() }
+    val user = auth.currentUser
+    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    var messageText by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
 
-    val chats = listOf(
-        ChatPreview("VIBE команда", "Добро пожаловать в VIBE CHAT!", "💜", 2),
-        ChatPreview("Друзья", "Создай свой первый разговор", "👋"),
-        ChatPreview("Избранное", "Твои сохранённые сообщения", "⭐")
-    )
+    DisposableEffect(user?.uid) {
+        var registration: ListenerRegistration? = null
+        if (user != null) {
+            registration = db.collection("chats")
+                .document("general")
+                .collection("messages")
+                .orderBy("createdAt")
+                .addSnapshotListener { snapshot, exception ->
+                    if (exception != null) {
+                        error = "Не удалось загрузить сообщения: ${exception.localizedMessage}"
+                    } else if (snapshot != null) {
+                        messages = snapshot.documents.map { doc ->
+                            ChatMessage(
+                                id = doc.id,
+                                authorId = doc.getString("authorId").orEmpty(),
+                                author = doc.getString("author").orEmpty(),
+                                text = doc.getString("text").orEmpty(),
+                                time = doc.getTimestamp("createdAt")
+                            )
+                        }
+                        error = ""
+                    }
+                }
+        }
+        onDispose { registration?.remove() }
+    }
 
     val background = Brush.verticalGradient(
         listOf(Dark, Color(0xFF11152F), Color(0xFF071B30))
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(background)
+    Column(
+        Modifier.fillMaxSize().background(background).statusBarsPadding().padding(16.dp)
     ) {
-        if (selectedChat == null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp)
-            ) {
-                Spacer(Modifier.height(18.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("VIBE CHAT", color = Cyan, fontSize = 26.sp,
+                    fontWeight = FontWeight.Black)
+                Text("Общий чат", color = Color.LightGray, fontSize = 14.sp)
+            }
+            TextButton(onClick = onLogout) {
+                Text("Выйти", color = Cyan)
+            }
+        }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Вошёл: ${phone.ifBlank { "аккаунт" }}",
+            color = Color.LightGray,
+            fontSize = 11.sp
+        )
+        Spacer(Modifier.height(12.dp))
+
+        if (error.isNotBlank()) {
+            Text(error, color = Color(0xFFFFA6A6), fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 8.dp)
+        ) {
+            items(messages, key = { it.id }) { msg ->
+                val own = msg.authorId == user?.uid
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = if (own) Alignment.End else Alignment.Start
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "VIBE CHAT",
-                            color = Cyan,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            "Твоя атмосфера общения",
-                            color = Color.LightGray,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(Panel, CircleShape),
-                        contentAlignment = Alignment.Center
+                    Text(
+                        if (own) "Ты" else msg.author,
+                        color = Cyan,
+                        fontSize = 11.sp
+                    )
+                    Column(
+                        Modifier.widthIn(max = 300.dp)
+                            .background(
+                                if (own) Color(0xFF493078) else Panel,
+                                RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        Text("💜", fontSize = 23.sp)
-                    }
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = { Text("Поиск чатов") },
-                    shape = RoundedCornerShape(18.dp)
-                )
-
-                Spacer(Modifier.height(22.dp))
-
-                Text(
-                    "ТВОИ ЧАТЫ",
-                    color = Color.LightGray,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(chats.filter {
-                        it.title.contains(search, ignoreCase = true)
-                    }) { chat ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Panel.copy(alpha = 0.9f),
-                                    RoundedCornerShape(20.dp)
-                                )
-                                .clickable { selectedChat = chat }
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(54.dp)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Purple, Color(0xFF00AFC8))
-                                        ),
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(chat.emoji, fontSize = 25.sp)
-                            }
-
-                            Spacer(Modifier.width(14.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    chat.title,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    chat.subtitle,
-                                    color = Color.LightGray,
-                                    fontSize = 13.sp
-                                )
-                            }
-
-                            if (chat.unread > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(Cyan, CircleShape)
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        "${chat.unread}",
-                                        color = Dark,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
+                        Text(msg.text, color = Color.White, fontSize = 15.sp)
+                        msg.time?.let {
+                            Text(
+                                SimpleDateFormat("HH:mm", Locale.getDefault())
+                                    .format(Date(it.toDate().time)),
+                                color = Color.LightGray,
+                                fontSize = 10.sp,
+                                modifier = Modifier.align(Alignment.End)
+                            )
                         }
                     }
                 }
-
-                Text(
-                    if (phone.isNotBlank()) "Вы вошли: $phone" else "Вы вошли в аккаунт",
-                    color = Color.LightGray,
-                    fontSize = 12.sp
-                )
-
-                TextButton(
-                    onClick = onLogout,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Выйти из аккаунта", color = Cyan)
-                }
-
-                Spacer(Modifier.height(8.dp))
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .padding(20.dp)
-            ) {
-                TextButton(onClick = { selectedChat = null }) {
-                    Text("‹  Назад к чатам", color = Cyan, fontSize = 16.sp)
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                Text(
-                    selectedChat!!.emoji,
-                    fontSize = 42.sp
-                )
-                Text(
-                    selectedChat!!.title,
-                    color = Color.White,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Text(
-                    selectedChat!!.subtitle,
-                    color = Color.LightGray,
-                    fontSize = 15.sp
-                )
-
-                Spacer(Modifier.height(20.dp))
-
-                Text(
-                    "Это пока демонстрационный экран. Следующим шагом подключим отправку сообщений.",
-                    color = Color.White,
-                    fontSize = 15.sp
-                )
             }
         }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = messageText,
+                onValueChange = { if (it.length <= 1000) messageText = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Напиши сообщение...") },
+                shape = RoundedCornerShape(18.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = Cyan,
+                    unfocusedBorderColor = Purple,
+                    focusedPlaceholderColor = Color.LightGray,
+                    unfocusedPlaceholderColor = Color.LightGray
+                )
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    val text = messageText.trim()
+                    val currentUser = auth.currentUser
+                    if (text.isNotBlank() && currentUser != null && !sending) {
+                        sending = true
+                        val author = currentUser.phoneNumber ?: "Пользователь"
+                        db.collection("chats").document("general")
+                            .collection("messages")
+                            .add(
+                                hashMapOf(
+                                    "text" to text,
+                                    "authorId" to currentUser.uid,
+                                    "author" to author,
+                                    "createdAt" to FieldValue.serverTimestamp()
+                                )
+                            )
+                            .addOnSuccessListener {
+                                messageText = ""
+                                sending = false
+                                error = ""
+                            }
+                            .addOnFailureListener { e ->
+                                sending = false
+                                error = "Не удалось отправить: ${e.localizedMessage}"
+                            }
+                    }
+                },
+                enabled = messageText.isNotBlank() && !sending && user != null,
+                colors = ButtonDefaults.buttonColors(containerColor = Purple)
+            ) {
+                Text(if (sending) "…" else "➤")
+            }
+        }
+        Spacer(Modifier.height(6.dp))
     }
 }
