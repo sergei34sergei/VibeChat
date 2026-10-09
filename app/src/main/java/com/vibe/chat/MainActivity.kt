@@ -1,11 +1,9 @@
-
 package com.vibe.chat
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -303,6 +301,7 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                     when (tab) {
                         "Чат" -> "Общий чат"
                         "Пользователи" -> "Найди собеседника"
+                        "Алекс AI" -> "Твой AI-помощник"
                         else -> "Твой профиль"
                     },
                     color = Color.LightGray, fontSize = 13.sp
@@ -320,6 +319,7 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                     myName = savedName,
                     onOpenProfile = { tab = "Профиль" }
                 )
+                "Алекс AI" -> AlexAiScreen()
                 else -> VibeProfile(
                     phone = phone,
                     savedName = savedName,
@@ -358,7 +358,7 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
         }
 
         NavigationBar(containerColor = Color(0xFF17112A)) {
-            listOf("Чат", "Пользователи", "Профиль").forEach { item ->
+            listOf("Чат", "Пользователи", "Алекс AI", "Профиль").forEach { item ->
                 NavigationBarItem(
                     selected = tab == item,
                     onClick = { tab = item },
@@ -367,12 +367,14 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                             when (item) {
                                 "Чат" -> "💬"
                                 "Пользователи" -> "👥"
+                                "Алекс AI" -> "✨"
                                 else -> "👤"
                             },
                             fontSize = 20.sp
                         )
                     },
-                    label = { Text(item) },
+                    label = { Text(item, fontSize = 10.sp) },
+                    alwaysShowLabel = true,
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Cyan,
                         selectedTextColor = Cyan,
@@ -710,5 +712,121 @@ fun VibeGeneralChat(phone: String) {
             ) { Text(if (sending) "…" else "➤") }
         }
         Spacer(Modifier.height(6.dp))
+    }
+}
+
+private data class AlexMessage(val fromUser: Boolean, val text: String)
+
+@Composable
+fun AlexAiScreen() {
+    var input by remember { mutableStateOf("") }
+    var messages by remember {
+        mutableStateOf(
+            listOf(
+                AlexMessage(
+                    false,
+                    "Привет, брат! Я Алекс AI ✨\n\nПока это демонстрационная версия. Можешь написать вопрос или попросить помочь с промптом для фото и видео."
+                )
+            )
+        )
+    }
+
+    Column(
+        Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth()
+                .background(Panel, RoundedCornerShape(18.dp))
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier.size(46.dp).background(
+                    Brush.linearGradient(listOf(Purple, Cyan)),
+                    RoundedCornerShape(23.dp)
+                ),
+                contentAlignment = Alignment.Center
+            ) { Text("✨", fontSize = 24.sp) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Алекс AI", color = Color.White, fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold)
+                Text("Демо-режим • ИИ ещё не подключён",
+                    color = Color.LightGray, fontSize = 11.sp)
+            }
+        }
+
+        LazyColumn(
+            Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 14.dp)
+        ) {
+            items(messages) { message ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start
+                ) {
+                    Text(
+                        message.text,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        modifier = Modifier.widthIn(max = 310.dp)
+                            .background(
+                                if (message.fromUser) Color(0xFF493078) else Panel,
+                                RoundedCornerShape(18.dp)
+                            )
+                            .padding(horizontal = 14.dp, vertical = 11.dp)
+                    )
+                }
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = { input = it.take(1000) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Спроси Алекса...") },
+                shape = RoundedCornerShape(18.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = Cyan,
+                    unfocusedBorderColor = Purple,
+                    focusedPlaceholderColor = Color.LightGray,
+                    unfocusedPlaceholderColor = Color.LightGray
+                )
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(
+                enabled = input.isNotBlank(),
+                onClick = {
+                    val question = input.trim()
+                    val q = question.lowercase(Locale.getDefault())
+                    val answer = when {
+                        listOf("фото", "картин", "изображ").any { q.contains(it) } ->
+                            "Я помогу составить красивый промпт для изображения. Но генерация картинок в приложении пока не подключена — добавим её отдельным этапом."
+                        q.contains("видео") ->
+                            "Могу помочь придумать сцену и написать промпт для видео. Автоматическая генерация видео в Vibe Chat пока не подключена."
+                        listOf("привет", "здравств", "салам").any { q.contains(it) } ->
+                            "Привет, брат! 👋 Я Алекс AI в демо-режиме. Напиши, с чем помочь."
+                        q.contains("промпт") ->
+                            "Напиши, что должно происходить в кадре, какой нужен стиль и формат. Я помогу оформить идею в промпт. Сейчас ответы демонстрационные."
+                        else ->
+                            "Я получил твоё сообщение: «$question».\n\nЭто пока макет: настоящий ИИ ещё не подключён, поэтому я не могу дать полноценный ответ. Следующим шагом подключим AI-сервис через безопасный сервер."
+                    }
+                    messages = messages + AlexMessage(true, question) + AlexMessage(false, answer)
+                    input = ""
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Purple),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+            ) { Text("➤") }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Демонстрационный режим — сообщения не отправляются во внешний ИИ.",
+            color = Color.LightGray, fontSize = 10.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
+        )
     }
 }
