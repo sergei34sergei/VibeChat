@@ -42,15 +42,12 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.launch
 
 private val Purple = Color(0xFF9B6BFF)
-private val BrightPurple = Color(0xFFB99AFF)
 private val Cyan = Color(0xFF62E9FF)
 private val Dark = Color(0xFF100B25)
 private val Panel = Color(0xFF21183B)
-private val PanelLight = Color(0xFF30214F)
 
 class MainActivity : ComponentActivity() {
     private val auth by lazy { FirebaseAuth.getInstance() }
-
     private var verificationId by mutableStateOf<String?>(null)
     private var status by mutableStateOf("")
     private var busy by mutableStateOf(false)
@@ -60,10 +57,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Для разработки: App Check должен быть настроен до обращения к Firebase Auth/AI.
+        // Отладочный провайдер нельзя использовать в опубликованной версии приложения.
         Firebase.initialize(context = this)
-
-        // Только для тестовой сборки.
-        // Перед публикацией потребуется настроить production App Check.
+        // В этой тестовой сборке используется Debug App Check.
+        // Не публикуй этот вариант в Play Market без настройки production App Check.
         Firebase.appCheck.installAppCheckProviderFactory(
             DebugAppCheckProviderFactory.getInstance()
         )
@@ -73,29 +71,24 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Dark
-                ) {
-                    if (signedIn) {
-                        VibeHome(
-                            phone = userPhone,
-                            onLogout = {
-                                auth.signOut()
-                                signedIn = false
-                                userPhone = ""
-                                verificationId = null
-                                status = "Ты вышел из аккаунта."
-                            }
-                        )
-                    } else {
-                        VibeLogin(
-                            status = status,
-                            busy = busy,
-                            onSendCode = { sendCode(it) },
-                            onVerifyCode = { verifyCode(it) }
-                        )
-                    }
+                if (signedIn) {
+                    VibeHome(
+                        phone = userPhone,
+                        onLogout = {
+                            auth.signOut()
+                            signedIn = false
+                            userPhone = ""
+                            verificationId = null
+                            status = "Ты вышел из аккаунта."
+                        }
+                    )
+                } else {
+                    VibeLogin(
+                        status = status,
+                        busy = busy,
+                        onSendCode = { sendCode(it) },
+                        onVerifyCode = { verifyCode(it) }
+                    )
                 }
             }
         }
@@ -103,98 +96,86 @@ class MainActivity : ComponentActivity() {
 
     private fun sendCode(phone: String) {
         val number = phone.trim()
-
         if (number.isBlank() || !number.startsWith("+")) {
             status = "Введи номер с кодом страны, например +49123456789"
             return
         }
-
         busy = true
-        status = "Отправляем код..."
+        status = "Проверяем номер..."
 
         val options = PhoneAuthOptions.newBuilder(auth)
             .setPhoneNumber(number)
             .setTimeout(60L, TimeUnit.SECONDS)
             .setActivity(this)
-            .setCallbacks(
-                object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-
-                    override fun onVerificationCompleted(
-                        credential: com.google.firebase.auth.PhoneAuthCredential
-                    ) {
-                        auth.signInWithCredential(credential)
-                            .addOnCompleteListener(this@MainActivity) { task ->
-                                busy = false
-
-                                if (task.isSuccessful) {
-                                    userPhone =
-                                        auth.currentUser?.phoneNumber.orEmpty()
-                                    signedIn = true
-                                    status = ""
-                                } else {
-                                    status =
-                                        "Не удалось войти: ${task.exception?.localizedMessage ?: "ошибка"}"
-                                }
+            .setCallbacks(object :
+                PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                override fun onVerificationCompleted(
+                    credential: com.google.firebase.auth.PhoneAuthCredential
+                ) {
+                    auth.signInWithCredential(credential)
+                        .addOnCompleteListener(this@MainActivity) { task ->
+                            busy = false
+                            if (task.isSuccessful) {
+                                userPhone = auth.currentUser?.phoneNumber.orEmpty()
+                                signedIn = true
+                                status = ""
+                            } else {
+                                status = "Не удалось войти: ${
+                                    task.exception?.localizedMessage ?: "ошибка"
+                                }"
                             }
-                    }
-
-                    override fun onVerificationFailed(e: FirebaseException) {
-                        busy = false
-                        status =
-                            "Ошибка: ${e.localizedMessage ?: "проверь номер и настройки Firebase"}"
-                    }
-
-                    override fun onCodeSent(
-                        id: String,
-                        token: PhoneAuthProvider.ForceResendingToken
-                    ) {
-                        verificationId = id
-                        busy = false
-                        status = "Код отправлен. Введи 6 цифр."
-                    }
-
-                    override fun onCodeAutoRetrievalTimeOut(id: String) {
-                        verificationId = id
-                        busy = false
-                        status = "Введи полученный код вручную."
-                    }
+                        }
                 }
-            )
-            .build()
 
+                override fun onVerificationFailed(e: FirebaseException) {
+                    busy = false
+                    status = "Ошибка: ${e.localizedMessage ?: "проверь номер"}"
+                }
+
+                override fun onCodeSent(
+                    id: String,
+                    token: PhoneAuthProvider.ForceResendingToken
+                ) {
+                    verificationId = id
+                    busy = false
+                    status = "Код отправлен. Введи 6 цифр."
+                }
+
+                override fun onCodeAutoRetrievalTimeOut(id: String) {
+                    verificationId = id
+                    busy = false
+                    status = "Введи код вручную."
+                }
+            })
+            .build()
         PhoneAuthProvider.verifyPhoneNumber(options)
     }
 
     private fun verifyCode(code: String) {
         val id = verificationId
-
         if (id == null) {
             status = "Сначала нажми «Получить код»."
             return
         }
-
         if (code.length != 6) {
             status = "Код должен содержать 6 цифр."
             return
         }
-
         busy = true
         status = "Проверяем код..."
-
-        auth.signInWithCredential(
-            PhoneAuthProvider.getCredential(id, code)
-        ).addOnCompleteListener(this) { task ->
-            busy = false
-
-            if (task.isSuccessful) {
-                userPhone = auth.currentUser?.phoneNumber.orEmpty()
-                signedIn = true
-                status = ""
-            } else {
-                status =
-                    "Ошибка входа: ${task.exception?.localizedMessage ?: "неверный код"}"
+        auth.signInWithCredential(PhoneAuthProvider.getCredential(id, code))
+            .addOnCompleteListener(this) { task ->
+                busy = false
+                if (task.isSuccessful) {
+                    userPhone = auth.currentUser?.phoneNumber.orEmpty()
+                    signedIn = true
+                    status = ""
+                } else {
+                    status = "Ошибка входа: ${
+                        task.exception?.localizedMessage ?: "неверный код"
+                    }"
+                }
             }
-        }
     }
 }
 
@@ -207,137 +188,73 @@ fun VibeLogin(
 ) {
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
-
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = Color.White,
         unfocusedTextColor = Color.White,
         focusedLabelColor = Cyan,
         unfocusedLabelColor = Color.LightGray,
         focusedBorderColor = Cyan,
-        unfocusedBorderColor = Purple,
-        cursorColor = Cyan
+        unfocusedBorderColor = Purple
     )
 
     Box(
-        Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Dark, Color(0xFF211044), Color(0xFF071B30))
-                )
-            )
-            .padding(24.dp),
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Dark, Color(0xFF211044), Color(0xFF071B30)))
+        ).padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(15.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Box(
-                Modifier
-                    .size(94.dp)
-                    .background(
-                        Brush.linearGradient(listOf(Purple, Cyan)),
-                        RoundedCornerShape(30.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("V", color = Dark, fontSize = 58.sp,
-                    fontWeight = FontWeight.Black)
-            }
-
-            Text(
-                "VIBE CHAT",
-                color = BrightPurple,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Black
-            )
-
-            Text(
-                "Твоё общение. Твоя атмосфера.",
-                color = Color.White,
-                textAlign = TextAlign.Center,
-                fontSize = 14.sp
-            )
-
-            Spacer(Modifier.height(8.dp))
+            Text("VIBE", color = Color(0xFFB99AFF), fontSize = 48.sp,
+                fontWeight = FontWeight.Black)
+            Text("CHAT", color = Cyan, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text("Твоё общение. Твоя атмосфера.", color = Color.White,
+                textAlign = TextAlign.Center)
 
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
                 label = { Text("Номер с кодом страны") },
                 placeholder = { Text("+49123456789") },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = fieldColors
             )
-
             Button(
                 onClick = { onSendCode(phone) },
                 enabled = !busy,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Purple
-                )
-            ) {
-                Text("Получить код", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Purple)
+            ) { Text("Получить код") }
 
             OutlinedTextField(
                 value = code,
-                onValueChange = {
-                    code = it.filter(Char::isDigit).take(6)
-                },
+                onValueChange = { code = it.filter(Char::isDigit).take(6) },
                 label = { Text("Шестизначный код") },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = fieldColors
             )
-
             Button(
                 onClick = { onVerifyCode(code) },
                 enabled = !busy,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF008FA8)
-                )
-            ) {
-                Text("Войти", fontWeight = FontWeight.Bold)
-            }
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00AFC8))
+            ) { Text("Войти", color = Color.White) }
 
-            if (busy) {
-                CircularProgressIndicator(color = Cyan)
-            }
-
-            if (status.isNotBlank()) {
-                Text(
-                    status,
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                    fontSize = 13.sp
-                )
-            }
-
-            Text(
-                "✦ Безопасное общение начинается здесь ✦",
-                color = Color.LightGray,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center
+            if (busy) CircularProgressIndicator(color = Cyan)
+            if (status.isNotBlank()) Text(
+                status, color = Color.White,
+                textAlign = TextAlign.Center, fontSize = 14.sp
             )
+            Text("Безопасное общение начинается здесь", color = Color.LightGray,
+                fontSize = 12.sp, textAlign = TextAlign.Center)
         }
     }
 }
@@ -357,12 +274,10 @@ private data class ChatMessage(
 )
 
 @Composable
-fun VibeHome(
-    phone: String,
-    onLogout: () -> Unit
-) {
+fun VibeHome(phone: String, onLogout: () -> Unit) {
     var tab by remember { mutableStateOf("Чат") }
-
+    var privateChatUserId by remember { mutableStateOf<String?>(null) }
+    var privateChatUserName by remember { mutableStateOf("") }
     val db = remember { FirebaseFirestore.getInstance() }
     val auth = remember { FirebaseAuth.getInstance() }
     val currentUser = auth.currentUser
@@ -374,91 +289,67 @@ fun VibeHome(
 
     DisposableEffect(currentUser?.uid) {
         var registration: ListenerRegistration? = null
-
         if (currentUser != null) {
-            registration = db.collection("users")
-                .document(currentUser.uid)
+            registration = db.collection("users").document(currentUser.uid)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {
-                        profileError =
-                            "Ошибка профиля: ${error.localizedMessage}"
+                        profileError = "Ошибка профиля: ${error.localizedMessage}"
                     } else if (snapshot != null) {
-                        savedName =
-                            snapshot.getString("name").orEmpty()
-
-                        if (!profileLoaded) {
-                            nameInput = savedName
-                        }
-
+                        savedName = snapshot.getString("name").orEmpty()
+                        if (!profileLoaded) nameInput = savedName
                         profileLoaded = true
                         profileError = ""
                     }
                 }
         }
-
-        onDispose {
-            registration?.remove()
-        }
+        onDispose { registration?.remove() }
     }
 
     val background = Brush.verticalGradient(
         listOf(Dark, Color(0xFF11152F), Color(0xFF071B30))
     )
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(background)
-            .statusBarsPadding()
-    ) {
+    Column(Modifier.fillMaxSize().background(background).statusBarsPadding()) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    "VIBE CHAT",
-                    color = Cyan,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Black
-                )
-
+                Text("VIBE CHAT", color = Cyan, fontSize = 25.sp,
+                    fontWeight = FontWeight.Black)
                 Text(
                     when (tab) {
-                        "Чат" -> "Общайся с друзьями"
+                        "Чат" -> "Общий чат"
                         "Пользователи" -> "Найди собеседника"
                         "Алекс AI" -> "Твой AI-помощник"
                         else -> "Твой профиль"
                     },
-                    color = Color.LightGray,
-                    fontSize = 12.sp
+                    color = Color.LightGray, fontSize = 13.sp
                 )
             }
-
-            TextButton(onClick = onLogout) {
-                Text("Выйти", color = Cyan)
-            }
+            TextButton(onClick = onLogout) { Text("Выйти", color = Cyan) }
         }
 
-        Box(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            when (tab) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (privateChatUserId != null) {
+                PrivateChatScreen(
+                    otherUserId = privateChatUserId!!,
+                    otherUserName = privateChatUserName,
+                    onBack = { privateChatUserId = null }
+                )
+            } else when (tab) {
                 "Чат" -> VibeGeneralChat(phone)
-
                 "Пользователи" -> VibeUsers(
                     db = db,
                     myId = currentUser?.uid.orEmpty(),
                     myName = savedName,
-                    onOpenProfile = { tab = "Профиль" }
+                    onOpenProfile = { tab = "Профиль" },
+                    onOpenChat = { personId, personName ->
+                        privateChatUserId = personId
+                        privateChatUserName = personName
+                    }
                 )
-
                 "Алекс AI" -> AlexAiScreen()
-
                 else -> VibeProfile(
                     phone = phone,
                     savedName = savedName,
@@ -467,34 +358,25 @@ fun VibeHome(
                     onSave = {
                         val uid = currentUser?.uid
                         val cleanName = nameInput.trim()
-
                         if (uid != null && cleanName.isNotBlank()) {
                             profileError = ""
-
                             val doc = db.collection("users").document(uid)
-
-                            val task =
-                                if (profileLoaded && savedName.isNotBlank()) {
-                                    doc.update("name", cleanName)
-                                } else {
-                                    doc.set(
-                                        hashMapOf(
-                                            "name" to cleanName,
-                                            "phone" to (
-                                                currentUser.phoneNumber ?: ""
-                                            ),
-                                            "createdAt" to
-                                                FieldValue.serverTimestamp()
-                                        )
+                            val task = if (profileLoaded && savedName.isNotBlank()) {
+                                doc.update("name", cleanName)
+                            } else {
+                                doc.set(
+                                    hashMapOf(
+                                        "name" to cleanName,
+                                        "phone" to (currentUser.phoneNumber ?: ""),
+                                        "createdAt" to FieldValue.serverTimestamp()
                                     )
-                                }
-
+                                )
+                            }
                             task.addOnSuccessListener {
                                 savedName = cleanName
                                 profileError = "Имя сохранено!"
                             }.addOnFailureListener { e ->
-                                profileError =
-                                    "Не удалось сохранить: ${e.localizedMessage}"
+                                profileError = "Не удалось сохранить: ${e.localizedMessage}"
                             }
                         } else {
                             profileError = "Введи имя."
@@ -505,37 +387,32 @@ fun VibeHome(
             }
         }
 
-        NavigationBar(
-            containerColor = Color(0xFF17112A)
-        ) {
-            listOf("Чат", "Пользователи", "Алекс AI", "Профиль")
-                .forEach { item ->
-                    NavigationBarItem(
-                        selected = tab == item,
-                        onClick = { tab = item },
-                        icon = {
-                            Text(
-                                when (item) {
-                                    "Чат" -> "💬"
-                                    "Пользователи" -> "👥"
-                                    "Алекс AI" -> "✨"
-                                    else -> "👤"
-                                },
-                                fontSize = 20.sp
-                            )
-                        },
-                        label = {
-                            Text(item, fontSize = 10.sp)
-                        },
-                        alwaysShowLabel = true,
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Cyan,
-                            selectedTextColor = Cyan,
-                            indicatorColor = Color(0xFF493078),
-                            unselectedTextColor = Color.LightGray
+        if (privateChatUserId == null) NavigationBar(containerColor = Color(0xFF17112A)) {
+            listOf("Чат", "Пользователи", "Алекс AI", "Профиль").forEach { item ->
+                NavigationBarItem(
+                    selected = tab == item,
+                    onClick = { tab = item },
+                    icon = {
+                        Text(
+                            when (item) {
+                                "Чат" -> "💬"
+                                "Пользователи" -> "👥"
+                                "Алекс AI" -> "✨"
+                                else -> "👤"
+                            },
+                            fontSize = 20.sp
                         )
+                    },
+                    label = { Text(item, fontSize = 10.sp) },
+                    alwaysShowLabel = true,
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Cyan,
+                        selectedTextColor = Cyan,
+                        indicatorColor = Color(0xFF493078),
+                        unselectedTextColor = Color.LightGray
                     )
-                }
+                )
+            }
         }
     }
 }
@@ -550,49 +427,29 @@ fun VibeProfile(
     error: String
 ) {
     Column(
-        Modifier
-            .fillMaxSize()
-            .padding(20.dp),
+        Modifier.fillMaxSize().padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(20.dp))
-
         Box(
-            Modifier
-                .size(100.dp)
-                .background(
-                    Brush.linearGradient(listOf(Purple, Cyan)),
-                    RoundedCornerShape(50.dp)
-                ),
+            Modifier.size(100.dp).background(
+                Brush.linearGradient(listOf(Purple, Cyan)),
+                RoundedCornerShape(50.dp)
+            ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 savedName.firstOrNull()?.uppercase() ?: "V",
-                color = Dark,
-                fontSize = 42.sp,
-                fontWeight = FontWeight.Black
+                color = Dark, fontSize = 42.sp, fontWeight = FontWeight.Black
             )
         }
-
         Spacer(Modifier.height(14.dp))
-
-        Text(
-            "МОЙ ПРОФИЛЬ",
-            color = Cyan,
-            fontSize = 23.sp,
-            fontWeight = FontWeight.Bold
-        )
-
+        Text("МОЙ ПРОФИЛЬ", color = Cyan, fontSize = 23.sp,
+            fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-
-        Text(
-            phone.ifBlank { "Телефон не указан" },
-            color = Color.LightGray,
-            fontSize = 13.sp
-        )
-
+        Text(phone.ifBlank { "Телефон не указан" },
+            color = Color.LightGray, fontSize = 13.sp)
         Spacer(Modifier.height(24.dp))
-
         OutlinedTextField(
             value = nameInput,
             onValueChange = onNameChange,
@@ -600,7 +457,6 @@ fun VibeProfile(
             placeholder = { Text("Например, Алекс") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
@@ -610,39 +466,24 @@ fun VibeProfile(
                 unfocusedLabelColor = Color.LightGray
             )
         )
-
         Spacer(Modifier.height(14.dp))
-
         Button(
             onClick = onSave,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Purple
-            )
-        ) {
-            Text("Сохранить профиль")
-        }
-
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Purple)
+        ) { Text("Сохранить профиль") }
         if (error.isNotBlank()) {
             Spacer(Modifier.height(12.dp))
-
             Text(
                 error,
-                color = if (error == "Имя сохранено!") Cyan
-                else Color(0xFFFFA6A6),
+                color = if (error == "Имя сохранено!") Cyan else Color(0xFFFFA6A6),
                 textAlign = TextAlign.Center
             )
         }
-
         Spacer(Modifier.height(16.dp))
-
         Text(
-            "Настрой свой профиль Vibe Chat",
-            color = Color.LightGray,
-            fontSize = 12.sp
+            "Позже добавим фотографию и статус.",
+            color = Color.LightGray, fontSize = 12.sp
         )
     }
 }
@@ -652,190 +493,122 @@ fun VibeUsers(
     db: FirebaseFirestore,
     myId: String,
     myName: String,
-    onOpenProfile: () -> Unit
+    onOpenProfile: () -> Unit,
+    onOpenChat: (String, String) -> Unit
 ) {
-    var users by remember {
-        mutableStateOf<List<VibeUser>>(emptyList())
-    }
-
+    var users by remember { mutableStateOf<List<VibeUser>>(emptyList()) }
     var search by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(true) }
 
     DisposableEffect(myId) {
-        val registration = db.collection("users")
+        var registration: ListenerRegistration? = null
+        registration = db.collection("users")
             .addSnapshotListener { snapshot, exception ->
                 loading = false
-
                 if (exception != null) {
-                    error =
-                        "Не удалось загрузить пользователей: ${exception.localizedMessage}"
+                    error = "Не удалось загрузить пользователей: ${exception.localizedMessage}"
                 } else if (snapshot != null) {
                     users = snapshot.documents.mapNotNull { doc ->
-                        val name = doc.getString("name")
-                            ?.trim()
-                            .orEmpty()
-
-                        if (name.isBlank()) {
-                            null
-                        } else {
-                            VibeUser(
-                                id = doc.id,
-                                name = name,
-                                phone = doc.getString("phone").orEmpty()
-                            )
-                        }
-                    }.sortedBy {
-                        it.name.lowercase(Locale.getDefault())
-                    }
-
+                        val name = doc.getString("name")?.trim().orEmpty()
+                        if (name.isBlank()) null
+                        else VibeUser(
+                            id = doc.id,
+                            name = name,
+                            phone = doc.getString("phone").orEmpty()
+                        )
+                    }.sortedBy { it.name.lowercase(Locale.getDefault()) }
                     error = ""
                 }
             }
-
-        onDispose {
-            registration.remove()
-        }
+        onDispose { registration?.remove() }
     }
 
     val visibleUsers = users.filter {
         it.id != myId &&
-            (
-                it.name.contains(search.trim(), ignoreCase = true) ||
-                    it.phone.contains(search.trim(), ignoreCase = true)
-                )
+            (it.name.contains(search.trim(), ignoreCase = true) ||
+                it.phone.contains(search.trim(), ignoreCase = true))
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         OutlinedTextField(
             value = search,
             onValueChange = { search = it },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Поиск по имени...") },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
                 focusedBorderColor = Cyan,
-                unfocusedBorderColor = Purple
+                unfocusedBorderColor = Purple,
+                focusedPlaceholderColor = Color.LightGray,
+                unfocusedPlaceholderColor = Color.LightGray
             )
         )
-
         Spacer(Modifier.height(12.dp))
-
         if (error.isNotBlank()) {
-            Text(
-                error,
-                color = Color(0xFFFFA6A6),
-                fontSize = 12.sp
-            )
+            Text(error, color = Color(0xFFFFA6A6), fontSize = 12.sp)
         }
-
         when {
-            loading -> {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Cyan)
-                }
-            }
-
-            visibleUsers.isEmpty() -> {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("👥", fontSize = 42.sp)
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Text(
-                            if (search.isBlank()) {
-                                "Пока нет других пользователей.\nПопроси друга зарегистрироваться."
-                            } else {
-                                "Никого не нашли."
-                            },
-                            color = Color.LightGray,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(Modifier.height(12.dp))
-
-                        OutlinedButton(onClick = onOpenProfile) {
-                            Text("Настроить мой профиль")
-                        }
+            loading -> Box(
+                Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator(color = Cyan) }
+            visibleUsers.isEmpty() -> Box(
+                Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("👥", fontSize = 42.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        if (search.isBlank())
+                            "Пока нет других пользователей.\nПопроси друга зарегистрироваться."
+                        else "Никого не нашли.",
+                        color = Color.LightGray, textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(onClick = onOpenProfile) {
+                        Text("Настроить мой профиль")
                     }
                 }
             }
-
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 12.dp)
-                ) {
-                    items(visibleUsers, key = { it.id }) { person ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
+            else -> LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 12.dp)
+            ) {
+                items(visibleUsers, key = { it.id }) { person ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(Panel, RoundedCornerShape(16.dp))
+                            .clickable { onOpenChat(person.id, person.name) }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier.size(48.dp)
                                 .background(
-                                    Panel,
-                                    RoundedCornerShape(18.dp)
-                                )
-                                .padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                    Brush.linearGradient(listOf(Purple, Cyan)),
+                                    RoundedCornerShape(24.dp)
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                Modifier
-                                    .size(48.dp)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Purple, Cyan)
-                                        ),
-                                        RoundedCornerShape(24.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    person.name.firstOrNull()?.uppercase()
-                                        ?: "?",
-                                    color = Dark,
-                                    fontSize = 21.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            Spacer(Modifier.width(12.dp))
-
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    person.name,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-
-                                Text(
-                                    person.phone.ifBlank {
-                                        "Пользователь VIBE"
-                                    },
-                                    color = Color.LightGray,
-                                    fontSize = 12.sp
-                                )
-                            }
+                            Text(
+                                person.name.firstOrNull()?.uppercase() ?: "?",
+                                color = Dark, fontSize = 21.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(person.name, color = Color.White,
+                                fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(
+                                person.phone.ifBlank { "Пользователь VIBE" },
+                                color = Color.LightGray, fontSize = 12.sp
+                            )
                         }
                     }
                 }
@@ -849,27 +622,19 @@ fun VibeGeneralChat(phone: String) {
     val auth = remember { FirebaseAuth.getInstance() }
     val db = remember { FirebaseFirestore.getInstance() }
     val user = auth.currentUser
-
-    var messages by remember {
-        mutableStateOf<List<ChatMessage>>(emptyList())
-    }
-
+    var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var messageText by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
 
     DisposableEffect(user?.uid) {
         var registration: ListenerRegistration? = null
-
         if (user != null) {
-            registration = db.collection("chats")
-                .document("general")
-                .collection("messages")
-                .orderBy("createdAt")
+            registration = db.collection("chats").document("general")
+                .collection("messages").orderBy("createdAt")
                 .addSnapshotListener { snapshot, exception ->
                     if (exception != null) {
-                        error =
-                            "Не удалось загрузить сообщения: ${exception.localizedMessage}"
+                        error = "Не удалось загрузить сообщения: ${exception.localizedMessage}"
                     } else if (snapshot != null) {
                         messages = snapshot.documents.map { doc ->
                             ChatMessage(
@@ -880,94 +645,48 @@ fun VibeGeneralChat(phone: String) {
                                 time = doc.getTimestamp("createdAt")
                             )
                         }
-
                         error = ""
                     }
                 }
         }
-
-        onDispose {
-            registration?.remove()
-        }
+        onDispose { registration?.remove() }
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
-        Text(
-            "Общение в реальном времени",
-            color = Color.LightGray,
-            fontSize = 11.sp
-        )
-
-        Text(
-            "Аккаунт: ${phone.ifBlank { "не указан" }}",
-            color = Color.LightGray,
-            fontSize = 10.sp
-        )
-
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Text("Вошёл: ${phone.ifBlank { "аккаунт" }}",
+            color = Color.LightGray, fontSize = 11.sp)
         if (error.isNotBlank()) {
             Spacer(Modifier.height(6.dp))
-
-            Text(
-                error,
-                color = Color(0xFFFFA6A6),
-                fontSize = 12.sp
-            )
+            Text(error, color = Color(0xFFFFA6A6), fontSize = 12.sp)
         }
 
         LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
             items(messages, key = { it.id }) { msg ->
                 val own = msg.authorId == user?.uid
-
                 Column(
                     Modifier.fillMaxWidth(),
-                    horizontalAlignment = if (own) {
-                        Alignment.End
-                    } else {
-                        Alignment.Start
-                    }
+                    horizontalAlignment = if (own) Alignment.End else Alignment.Start
                 ) {
-                    Text(
-                        if (own) "Ты" else msg.author,
-                        color = Cyan,
-                        fontSize = 11.sp
-                    )
-
+                    Text(if (own) "Ты" else msg.author,
+                        color = Cyan, fontSize = 11.sp)
                     Column(
-                        Modifier
-                            .widthIn(max = 300.dp)
+                        Modifier.widthIn(max = 300.dp)
                             .background(
-                                if (own) PanelLight else Panel,
-                                RoundedCornerShape(18.dp)
+                                if (own) Color(0xFF493078) else Panel,
+                                RoundedCornerShape(16.dp)
                             )
-                            .padding(
-                                horizontal = 14.dp,
-                                vertical = 10.dp
-                            )
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        Text(
-                            msg.text,
-                            color = Color.White,
-                            fontSize = 15.sp
-                        )
-
+                        Text(msg.text, color = Color.White, fontSize = 15.sp)
                         msg.time?.let {
                             Text(
-                                SimpleDateFormat(
-                                    "HH:mm",
-                                    Locale.getDefault()
-                                ).format(Date(it.toDate().time)),
-                                color = Color.LightGray,
-                                fontSize = 10.sp,
+                                SimpleDateFormat("HH:mm", Locale.getDefault())
+                                    .format(Date(it.toDate().time)),
+                                color = Color.LightGray, fontSize = 10.sp,
                                 modifier = Modifier.align(Alignment.End)
                             )
                         }
@@ -979,9 +698,7 @@ fun VibeGeneralChat(phone: String) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = messageText,
-                onValueChange = {
-                    if (it.length <= 1000) messageText = it
-                },
+                onValueChange = { if (it.length <= 1000) messageText = it },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Напиши сообщение...") },
                 shape = RoundedCornerShape(18.dp),
@@ -989,32 +706,26 @@ fun VibeGeneralChat(phone: String) {
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
                     focusedBorderColor = Cyan,
-                    unfocusedBorderColor = Purple
+                    unfocusedBorderColor = Purple,
+                    focusedPlaceholderColor = Color.LightGray,
+                    unfocusedPlaceholderColor = Color.LightGray
                 )
             )
-
             Spacer(Modifier.width(8.dp))
-
             Button(
                 onClick = {
                     val text = messageText.trim()
                     val current = auth.currentUser
-
                     if (text.isNotBlank() && current != null && !sending) {
                         sending = true
-
-                        db.collection("chats")
-                            .document("general")
+                        db.collection("chats").document("general")
                             .collection("messages")
                             .add(
                                 hashMapOf(
                                     "text" to text,
                                     "authorId" to current.uid,
-                                    "author" to (
-                                        current.phoneNumber ?: "Пользователь"
-                                        ),
-                                    "createdAt" to
-                                        FieldValue.serverTimestamp()
+                                    "author" to (current.phoneNumber ?: "Пользователь"),
+                                    "createdAt" to FieldValue.serverTimestamp()
                                 )
                             )
                             .addOnSuccessListener {
@@ -1024,427 +735,142 @@ fun VibeGeneralChat(phone: String) {
                             }
                             .addOnFailureListener { e ->
                                 sending = false
-                                error =
-                                    "Не удалось отправить: ${e.localizedMessage}"
+                                error = "Не удалось отправить: ${e.localizedMessage}"
                             }
                     }
                 },
-                enabled = messageText.isNotBlank() &&
-                    !sending &&
-                    user != null,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Purple
-                ),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Text(if (sending) "…" else "➤")
-            }
+                enabled = messageText.isNotBlank() && !sending && user != null,
+                colors = ButtonDefaults.buttonColors(containerColor = Purple)
+            ) { Text(if (sending) "…" else "➤") }
         }
-
         Spacer(Modifier.height(6.dp))
     }
 }
 
-private data class AlexMessage(
-    val fromUser: Boolean,
-    val text: String
-)
+private data class AlexMessage(val fromUser: Boolean, val text: String)
 
 @Composable
 fun AlexAiScreen() {
     var input by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
-
     val scope = rememberCoroutineScope()
-
     val model = remember {
         Firebase.ai(backend = GenerativeBackend.googleAI())
             .generativeModel("gemini-3.8-flash")
     }
-
     var messages by remember {
         mutableStateOf(
             listOf(
                 AlexMessage(
                     false,
-                    "Привет! Я Алекс AI ✨\n\n" +
-                        "Твой помощник внутри Vibe Chat. " +
-                        "Могу помочь с идеями, текстами и промптами для фото и видео.\n\n" +
-                        "Выбери тему ниже или задай свой вопрос!"
+                    "Привет, брат! Я Алекс AI ✨\n\nЯ подключаюсь к Gemini. Напиши вопрос — постараюсь помочь."
                 )
             )
         )
     }
 
-    val suggestions = listOf(
-        "🎬 Идея для видео",
-        "🖼️ Промпт для фото",
-        "🚀 Идея для TikTok"
-    )
-
-    fun askAlex(question: String) {
-        val cleanQuestion = question.trim()
-
-        if (cleanQuestion.isBlank() || isLoading) return
-
-        messages = messages + AlexMessage(true, cleanQuestion)
-        input = ""
-        error = ""
-        isLoading = true
-
-        scope.launch {
-            try {
-                val prompt =
-                    "Ты Алекс AI — дружелюбный помощник внутри приложения Vibe Chat. " +
-                    "Отвечай по-русски, понятно, доброжелательно и полезно. " +
-                    "Помогай придумывать идеи, писать тексты и промпты для фото и видео. " +
-                    "Если просят промпт, дай готовый текст, который можно скопировать. " +
-                    "Не утверждай, что генерация изображений или видео уже встроена в приложение, " +
-                    "если это не подключено.\n\n" +
-                    "Сообщение пользователя: $cleanQuestion"
-
-                val response = model.generateContent(prompt)
-
-                val answer = response.text
-                    ?.takeIf { it.isNotBlank() }
-                    ?: "Gemini не вернул текст. Попробуй задать вопрос иначе."
-
-                messages = messages + AlexMessage(false, answer)
-            } catch (e: Exception) {
-                error =
-                    "Не удалось получить ответ: " +
-                    (e.localizedMessage ?: "проверь интернет и настройки Firebase AI Logic")
-
-                messages = messages + AlexMessage(
-                    false,
-                    "Пока не удалось связаться с Gemini. " +
-                        "Проверь интернет и настройки Firebase AI Logic."
-                )
-            } finally {
-                isLoading = false
-            }
-        }
-    }
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Dark,
-                        Color(0xFF17102D),
-                        Color(0xFF081B2C)
-                    )
-                )
-            )
-            .padding(horizontal = 14.dp, vertical = 8.dp)
-    ) {
-        // Шапка Алекса
+    Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color(0xFF302052),
-                            Color(0xFF19283F)
-                        )
-                    ),
-                    RoundedCornerShape(22.dp)
-                )
-                .padding(14.dp),
+            Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(18.dp)).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                Modifier
-                    .size(56.dp)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(BrightPurple, Cyan, Purple)
-                        ),
-                        RoundedCornerShape(20.dp)
-                    ),
+                Modifier.size(46.dp).background(
+                    Brush.linearGradient(listOf(Purple, Cyan)), RoundedCornerShape(23.dp)
+                ),
                 contentAlignment = Alignment.Center
-            ) {
-                Text("✦", color = Dark, fontSize = 34.sp,
-                    fontWeight = FontWeight.Black)
-            }
-
+            ) { Text("✨", fontSize = 24.sp) }
             Spacer(Modifier.width(12.dp))
-
             Column(Modifier.weight(1f)) {
-                Text(
-                    "Алекс AI",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black
-                )
-
-                Spacer(Modifier.height(3.dp))
-
-                Text(
-                    if (isLoading) "Думаю над ответом..."
-                    else "✦ Gemini AI • онлайн-помощник",
-                    color = if (isLoading) Cyan else Color.LightGray,
-                    fontSize = 11.sp
-                )
-            }
-
-            Box(
-                Modifier
-                    .background(
-                        Color(0xFF163D45),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .padding(horizontal = 9.dp, vertical = 6.dp)
-            ) {
-                Text("AI", color = Cyan, fontWeight = FontWeight.Bold)
+                Text("Алекс AI", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(if (isLoading) "Gemini думает..." else "Gemini AI • облачный режим",
+                    color = Color.LightGray, fontSize = 11.sp)
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        // Быстрые подсказки
-        Text(
-            "ЧЕМ ПОМОЧЬ СЕГОДНЯ?",
-            color = BrightPurple,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            suggestions.forEach { suggestion ->
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Panel,
-                            RoundedCornerShape(14.dp)
-                        )
-                        .clickable(enabled = !isLoading) {
-                            val question = when (suggestion) {
-                                "🎬 Идея для видео" ->
-                                    "Придумай интересную идею для короткого вертикального видео на 30 секунд."
-
-                                "🖼️ Промпт для фото" ->
-                                    "Напиши подробный качественный промпт для красивого кинематографического фото."
-
-                                else ->
-                                    "Придумай оригинальную идею для TikTok, которая сможет заинтересовать зрителей."
-                            }
-
-                            askAlex(question)
-                        }
-                        .padding(horizontal = 14.dp, vertical = 11.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            suggestion,
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        Text("›", color = Cyan, fontSize = 24.sp)
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        Text(
-            "ТВОЙ ДИАЛОГ",
-            color = BrightPurple,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
-
-        Spacer(Modifier.height(6.dp))
-
-        // Сообщения
         LazyColumn(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
+            Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 14.dp)
         ) {
             items(messages) { message ->
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (message.fromUser) {
-                        Arrangement.End
-                    } else {
-                        Arrangement.Start
-                    },
-                    verticalAlignment = Alignment.Top
+                    horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start
                 ) {
-                    if (!message.fromUser) {
-                        Box(
-                            Modifier
-                                .size(30.dp)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Purple, Cyan)
-                                    ),
-                                    RoundedCornerShape(12.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("✦", color = Dark, fontSize = 18.sp)
-                        }
-
-                        Spacer(Modifier.width(7.dp))
-                    }
-
                     Text(
-                        message.text,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        modifier = Modifier
-                            .widthIn(max = 300.dp)
-                            .background(
-                                if (message.fromUser) {
-                                    Brush.linearGradient(
-                                        listOf(
-                                            Color(0xFF6640A4),
-                                            Color(0xFF42306E)
-                                        )
-                                    )
-                                } else {
-                                    Brush.linearGradient(
-                                        listOf(
-                                            PanelLight,
-                                            Color(0xFF201A35)
-                                        )
-                                    )
-                                },
-                                RoundedCornerShape(18.dp)
-                            )
-                            .padding(
-                                horizontal = 13.dp,
-                                vertical = 11.dp
-                            )
+                        message.text, color = Color.White, fontSize = 14.sp,
+                        modifier = Modifier.widthIn(max = 310.dp).background(
+                            if (message.fromUser) Color(0xFF493078) else Panel,
+                            RoundedCornerShape(18.dp)
+                        ).padding(horizontal = 14.dp, vertical = 11.dp)
                     )
                 }
             }
-
-            if (isLoading) {
-                item {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(start = 36.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            Modifier.size(20.dp),
-                            color = Cyan,
-                            strokeWidth = 2.dp
-                        )
-
-                        Spacer(Modifier.width(8.dp))
-
-                        Text(
-                            "Алекс готовит ответ...",
-                            color = Color.LightGray,
-                            fontSize = 12.sp
-                        )
-                    }
+            if (isLoading) item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                    CircularProgressIndicator(Modifier.size(22.dp), color = Cyan, strokeWidth = 2.dp)
                 }
             }
         }
 
-        if (error.isNotBlank()) {
-            Text(
-                error,
-                color = Color(0xFFFFA6A6),
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp)
-            )
-        }
+        if (error.isNotBlank()) Text(
+            error, color = Color(0xFFFFA6A6), fontSize = 12.sp,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+        )
 
-        // Поле ввода
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    Panel,
-                    RoundedCornerShape(22.dp)
-                )
-                .padding(5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                value = input,
-                onValueChange = { input = it.take(1000) },
-                modifier = Modifier.weight(1f),
-                placeholder = {
-                    Text(
-                        "Напиши Алексу...",
-                        color = Color.LightGray
-                    )
-                },
-                shape = RoundedCornerShape(18.dp),
-                maxLines = 4,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text
-                ),
+                value = input, onValueChange = { input = it.take(1000) },
+                modifier = Modifier.weight(1f), placeholder = { Text("Спроси Алекса...") },
+                shape = RoundedCornerShape(18.dp), maxLines = 4,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Cyan,
-                    unfocusedBorderColor = Color.Transparent,
-                    focusedPlaceholderColor = Color.LightGray,
-                    unfocusedPlaceholderColor = Color.LightGray,
-                    cursorColor = Cyan
+                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                    focusedBorderColor = Cyan, unfocusedBorderColor = Purple,
+                    focusedPlaceholderColor = Color.LightGray, unfocusedPlaceholderColor = Color.LightGray
                 )
             )
-
-            Spacer(Modifier.width(6.dp))
-
+            Spacer(Modifier.width(8.dp))
             Button(
-                onClick = { askAlex(input) },
                 enabled = input.isNotBlank() && !isLoading,
-                modifier = Modifier.size(49.dp),
-                shape = RoundedCornerShape(16.dp),
-                contentPadding = PaddingValues(0.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Purple,
-                    disabledContainerColor = Color(0xFF46365D)
-                )
-            ) {
-                Text(
-                    if (isLoading) "…" else "➤",
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+                onClick = {
+                    val question = input.trim()
+                    if (question.isNotBlank() && !isLoading) {
+                        messages = messages + AlexMessage(true, question)
+                        input = ""
+                        error = ""
+                        isLoading = true
+                        scope.launch {
+                            try {
+                                val prompt = "Ты Алекс AI — дружелюбный помощник внутри Vibe Chat. " +
+                                    "Отвечай по-русски, понятно и полезно. Помогай писать промпты для фото и видео, " +
+                                    "но не утверждай, что генерация изображений или видео внутри приложения уже доступна, " +
+                                    "если она не подключена.\n\nСообщение пользователя: $question"
+                                val response = model.generateContent(prompt)
+                                val answer = response.text?.takeIf { it.isNotBlank() }
+                                    ?: "Gemini не вернул текст. Попробуй задать вопрос иначе."
+                                messages = messages + AlexMessage(false, answer)
+                            } catch (e: Exception) {
+                                error = "Не удалось получить ответ: ${e.localizedMessage ?: "проверь интернет и настройки Firebase AI Logic"}"
+                                messages = messages + AlexMessage(
+                                    false,
+                                    "Не получилось связаться с Gemini. Проверь интернет, настройку Firebase AI Logic и App Check."
+                                )
+                            } finally {
+                                isLoading = false
+                            }
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Purple),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+            ) { Text(if (isLoading) "…" else "➤") }
         }
-
-        Spacer(Modifier.height(7.dp))
-
+        Spacer(Modifier.height(4.dp))
         Text(
-            "Ответы генерируются Gemini AI",
-            color = Color.LightGray,
-            fontSize = 10.sp,
-            textAlign = TextAlign.Center,
+            "Сообщения отправляются в Gemini для генерации ответов.",
+            color = Color.LightGray, fontSize = 10.sp, textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
     }
