@@ -319,7 +319,8 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                     fontWeight = FontWeight.Black)
                 Text(
                     when (tab) {
-                        "Чат" -> "Общий чат"
+                        "Чат" -> "Твои переписки"
+                        "Общий чат" -> "Общение со всеми"
                         "Пользователи" -> "Найди собеседника"
                         "Алекс AI" -> "Твой AI-помощник"
                         else -> "Твой профиль"
@@ -338,7 +339,16 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                     onBack = { privateChatUserId = null }
                 )
             } else when (tab) {
-                "Чат" -> VibeGeneralChat(phone)
+                "Чат" -> VibeChatsListScreen(
+                    myId = currentUser?.uid.orEmpty(),
+                    onOpenChat = { personId, personName ->
+                        privateChatUserId = personId
+                        privateChatUserName = personName
+                    },
+                    onOpenGeneralChat = { tab = "Общий чат" },
+                    onOpenUsers = { tab = "Пользователи" }
+                )
+                "Общий чат" -> VibeGeneralChat(phone)
                 "Пользователи" -> VibeUsers(
                     db = db,
                     myId = currentUser?.uid.orEmpty(),
@@ -609,6 +619,163 @@ fun VibeUsers(
                                 person.phone.ifBlank { "Пользователь VIBE" },
                                 color = Color.LightGray, fontSize = 12.sp
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class ConversationPreview(
+    val chatId: String,
+    val otherUserId: String,
+    val otherUserName: String,
+    val lastText: String,
+    val lastAt: Timestamp?
+)
+
+@Composable
+fun VibeChatsListScreen(
+    myId: String,
+    onOpenChat: (String, String) -> Unit,
+    onOpenGeneralChat: () -> Unit,
+    onOpenUsers: () -> Unit
+) {
+    val db = remember { FirebaseFirestore.getInstance() }
+    var conversations by remember { mutableStateOf<List<ConversationPreview>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf("") }
+
+    DisposableEffect(myId) {
+        var chatsRegistration: ListenerRegistration? = null
+        val messageRegistrations = mutableMapOf<String, ListenerRegistration>()
+
+        if (myId.isNotBlank()) {
+            chatsRegistration = db.collection("chats")
+                .whereArrayContains("participantIds", myId)
+                .addSnapshotListener { snapshot, exception ->
+                    loading = false
+                    if (exception != null) {
+                        error = "Не удалось загрузить переписки: ${exception.localizedMessage}"
+                    } else if (snapshot != null) {
+                        error = ""
+                        val currentIds = snapshot.documents.map { it.id }.toSet()
+                        messageRegistrations.keys.filter { it !in currentIds }.forEach { staleId ->
+                            messageRegistrations.remove(staleId)?.remove()
+                        }
+                        val existingIds = conversations.map { it.chatId }.toSet()
+                        snapshot.documents.forEach { chatDoc ->
+                            val participants = chatDoc.get("participantIds") as? List<*> ?: emptyList<Any>()
+                            val otherId = participants.filterIsInstance<String>().firstOrNull { it != myId }
+                                ?: return@forEach
+                            val chatId = chatDoc.id
+                            if (chatId !in existingIds) {
+                                conversations = conversations + ConversationPreview(
+                                    chatId = chatId,
+                                    otherUserId = otherId,
+                                    otherUserName = "Пользователь",
+                                    lastText = "Откройте переписку",
+                                    lastAt = chatDoc.getTimestamp("createdAt")
+                                )
+                                db.collection("users").document(otherId).get()
+                                    .addOnSuccessListener { userDoc ->
+                                        val name = userDoc.getString("name")?.takeIf { it.isNotBlank() }
+                                            ?: userDoc.getString("phone")?.takeIf { it.isNotBlank() }
+                                            ?: "Пользователь"
+                                        conversations = conversations.map { item ->
+                                            if (item.chatId == chatId) item.copy(otherUserName = name) else item
+                                        }
+                                    }
+                            }
+                            if (!messageRegistrations.containsKey(chatId)) {
+                                messageRegistrations[chatId] = db.collection("chats").document(chatId)
+                                    .collection("messages")
+                                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                                    .limit(1)
+                                    .addSnapshotListener { messages, messageError ->
+                                        if (messageError != null) {
+                                            error = "Не удалось обновить переписки: ${messageError.localizedMessage}"
+                                        } else {
+                                            val latest = messages?.documents?.firstOrNull()
+                                            conversations = conversations.map { item ->
+                                                if (item.chatId == chatId) item.copy(
+                                                    lastText = latest?.getString("text") ?: "Пока нет сообщений",
+                                                    lastAt = latest?.getTimestamp("createdAt") ?: item.lastAt
+                                                ) else item
+                                            }.sortedByDescending { it.lastAt?.toDate()?.time ?: 0L }
+                                        }
+                                    }
+                            }
+                        }
+                        conversations = conversations.filter { it.chatId in currentIds }
+                            .sortedByDescending { it.lastAt?.toDate()?.time ?: 0L }
+                    }
+                }
+        } else {
+            loading = false
+            error = "Войди в аккаунт, чтобы увидеть переписки."
+        }
+        onDispose {
+            chatsRegistration?.remove()
+            messageRegistrations.values.forEach { it.remove() }
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onOpenGeneralChat, modifier = Modifier.weight(1f)) {
+                Text("🌐 Общий чат")
+            }
+            Button(onClick = onOpenUsers, modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = Purple)) {
+                Text("＋ Новая переписка")
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        if (error.isNotBlank()) Text(error, color = Color(0xFFFFA6A6), fontSize = 12.sp)
+        when {
+            loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Cyan)
+            }
+            conversations.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("💬", fontSize = 46.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text("Пока нет личных переписок", color = Color.White,
+                        fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Нажми «Новая переписка» и выбери пользователя.",
+                        color = Color.LightGray, textAlign = TextAlign.Center)
+                }
+            }
+            else -> LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(9.dp),
+                contentPadding = PaddingValues(bottom = 12.dp)
+            ) {
+                items(conversations, key = { it.chatId }) { item ->
+                    Row(
+                        Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(16.dp))
+                            .clickable { onOpenChat(item.otherUserId, item.otherUserName) }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.size(50.dp).background(
+                            Brush.linearGradient(listOf(Purple, Cyan)), RoundedCornerShape(25.dp)),
+                            contentAlignment = Alignment.Center) {
+                            Text(item.otherUserName.firstOrNull()?.uppercase() ?: "V",
+                                color = Dark, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(item.otherUserName, color = Color.White, fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text(item.lastText, color = Color.LightGray, fontSize = 13.sp,
+                                maxLines = 1)
+                        }
+                        item.lastAt?.let { time ->
+                            Text(SimpleDateFormat("HH:mm", Locale.getDefault())
+                                .format(Date(time.toDate().time)), color = Cyan, fontSize = 11.sp)
                         }
                     }
                 }
