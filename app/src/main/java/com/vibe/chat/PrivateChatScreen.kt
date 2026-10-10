@@ -87,32 +87,20 @@ fun PrivateChatScreen(
                     }
             }
 
-            chatRef.get().addOnSuccessListener { doc ->
-                if (!doc.exists()) {
-                    chatRef.set(
-                        mapOf(
-                            "participantIds" to listOf(myId, otherUserId).sorted(),
-                            "createdAt" to FieldValue.serverTimestamp()
-                        )
-                    ).addOnSuccessListener {
-                        chatReady = true
-                        error = ""
-                        startMessagesListener()
-                    }.addOnFailureListener { e ->
-                        error = "Не удалось создать чат: ${e.localizedMessage}"
-                    }
-                } else {
-                    val participants = doc.get("participantIds") as? List<*>
-                    if (participants?.contains(myId) == true && participants.contains(otherUserId)) {
-                        chatReady = true
-                        error = ""
-                        startMessagesListener()
-                    } else {
-                        error = "Нет доступа к этому чату."
-                    }
-                }
+            // Create the chat directly instead of reading a possibly-missing document first.
+            // Firestore rules can deny reading a chat document before it exists.
+            chatRef.set(
+                mapOf(
+                    "participantIds" to listOf(myId, otherUserId).sorted(),
+                    "createdAt" to FieldValue.serverTimestamp()
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            ).addOnSuccessListener {
+                chatReady = true
+                error = ""
+                startMessagesListener()
             }.addOnFailureListener { e ->
-                error = "Ошибка открытия чата: ${e.localizedMessage}"
+                error = "Не удалось открыть/создать чат: ${e.localizedMessage}"
             }
         }
         onDispose { messageRegistration?.remove() }
