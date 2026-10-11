@@ -20,12 +20,14 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,7 +48,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -71,17 +72,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.google.firebase.Firebase
-import com.google.firebase.ai.GenerativeBackend
+import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.GenerativeBackend
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.UUID
@@ -92,7 +94,6 @@ private data class AlexMessage(
     val text: String
 )
 
-private val AlexBackground = Color(0xFF08091A)
 private val AlexPurple = Color(0xFF995CFF)
 private val AlexBlue = Color(0xFF45C8FF)
 private val AlexPink = Color(0xFFFF83E8)
@@ -123,7 +124,6 @@ fun AlexVoiceScreen() {
     }
 
     val latestVoiceActive by rememberUpdatedState(voiceActive)
-    val latestListening by rememberUpdatedState(listening)
 
     val sendMessage: (String, Boolean) -> Unit = { rawText, speakReply ->
         val userText = rawText.trim()
@@ -149,14 +149,14 @@ fun AlexVoiceScreen() {
                         }
 
                     val prompt = """
-                        Ты Алекс — дружелюбный голосовой ИИ-помощник
+                        Ты Алекс — дружелюбный ИИ-помощник
                         в приложении Vibe Chat.
-                        Отвечай естественно, тепло и по-русски.
-                        Учитывай историю диалога.
-                        Не утверждай, что можешь выполнять действия,
-                        если у тебя нет соответствующего инструмента.
+                        Отвечай естественно и по-русски.
+                        Учитывай историю разговора.
+                        Не утверждай, что выполняешь действия,
+                        если у тебя нет соответствующих инструментов.
 
-                        История разговора:
+                        История:
                         $history
 
                         Ответь на последнее сообщение пользователя.
@@ -170,20 +170,14 @@ fun AlexVoiceScreen() {
                     val answer = response.text
                         ?.trim()
                         ?.takeIf { it.isNotEmpty() }
-                        ?: "Я пока не смог сформулировать ответ. Попробуй ещё раз."
+                        ?: "Не получилось сформулировать ответ. Попробуй ещё раз."
 
                     messages.add(
                         AlexMessage(fromAlex = true, text = answer)
                     )
 
-                    status = if (speakReply) {
-                        "Алекс отвечает…"
-                    } else {
-                        "Я готов продолжать разговор."
-                    }
-
                     if (speakReply) {
-                        speaking = true
+                        status = "Алекс отвечает…"
                         val tts = textToSpeech
 
                         if (tts != null) {
@@ -197,12 +191,14 @@ fun AlexVoiceScreen() {
                             speaking = false
                             status = "Озвучка пока недоступна."
                         }
+                    } else {
+                        status = "Я готов продолжать разговор."
                     }
                 } catch (e: Exception) {
                     messages.add(
                         AlexMessage(
                             fromAlex = true,
-                            text = "Не получилось получить ответ. Проверь интернет и настройки подключения Gemini, затем попробуй снова."
+                            text = "Не получилось получить ответ. Проверь интернет и подключение Gemini, затем попробуй снова."
                         )
                     )
                     status = "Не удалось подключиться."
@@ -220,7 +216,7 @@ fun AlexVoiceScreen() {
             val recognizer = speechRecognizer
 
             if (recognizer == null) {
-                status = "Распознавание речи недоступно на этом устройстве."
+                status = "Распознавание речи недоступно на устройстве."
                 listening = false
             } else {
                 try {
@@ -297,11 +293,12 @@ fun AlexVoiceScreen() {
     val latestBeginVoice by rememberUpdatedState(beginVoiceConversation)
 
     DisposableEffect(context) {
-        val recognizer = if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            SpeechRecognizer.createSpeechRecognizer(context)
-        } else {
-            null
-        }
+        val recognizer =
+            if (SpeechRecognizer.isRecognitionAvailable(context)) {
+                SpeechRecognizer.createSpeechRecognizer(context)
+            } else {
+                null
+            }
 
         speechRecognizer = recognizer
 
@@ -316,7 +313,6 @@ fun AlexVoiceScreen() {
             }
 
             override fun onRmsChanged(rmsdB: Float) = Unit
-
             override fun onBufferReceived(buffer: ByteArray?) = Unit
 
             override fun onEndOfSpeech() {
@@ -336,7 +332,8 @@ fun AlexVoiceScreen() {
                         SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
                             "Микрофон занят. Попробуй ещё раз."
 
-                        else -> "Не удалось распознать речь. Нажми кнопку и попробуй снова."
+                        else ->
+                            "Не удалось распознать речь. Нажми сферу и попробуй снова."
                     }
                 }
             }
@@ -359,7 +356,6 @@ fun AlexVoiceScreen() {
             }
 
             override fun onPartialResults(partialResults: Bundle?) = Unit
-
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
 
@@ -496,9 +492,7 @@ private fun AlexGalaxyHome(
             )
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        GalaxyStars(
-            modifier = Modifier.fillMaxSize()
-        )
+        GalaxyStars(Modifier.fillMaxSize())
 
         Column(
             modifier = Modifier
@@ -507,9 +501,7 @@ private fun AlexGalaxyHome(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "VIBE  •  AI",
                     color = Color(0xFFBCA9FF),
@@ -534,9 +526,7 @@ private fun AlexGalaxyHome(
                 )
             }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier.size(320.dp),
                     contentAlignment = Alignment.Center
@@ -559,9 +549,9 @@ private fun AlexGalaxyHome(
                             )
                             .clip(CircleShape)
                             .border(
-                                width = 1.dp,
-                                color = Color.White.copy(alpha = 0.5f),
-                                shape = CircleShape
+                                1.dp,
+                                Color.White.copy(alpha = 0.5f),
+                                CircleShape
                             ),
                         color = Color(0xFF34246B).copy(alpha = 0.9f),
                         shape = CircleShape,
@@ -599,7 +589,7 @@ private fun AlexGalaxyHome(
                     text = status,
                     color = Color(0xFFBFC5E8),
                     fontSize = 13.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -645,7 +635,7 @@ private fun AlexGalaxyHome(
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White
                     ),
-                    border = androidx.compose.foundation.BorderStroke(
+                    border = BorderStroke(
                         1.dp,
                         Color(0xFF8270C9).copy(alpha = 0.8f)
                     )
@@ -745,7 +735,10 @@ private fun GalaxyOrb(
                     center.x - baseRadius * 1.5f,
                     center.y - baseRadius * 0.48f
                 ),
-                size = Size(baseRadius * 3f, baseRadius * 0.96f),
+                size = Size(
+                    baseRadius * 3f,
+                    baseRadius * 0.96f
+                ),
                 style = Stroke(width = 2.dp.toPx())
             )
 
@@ -755,7 +748,10 @@ private fun GalaxyOrb(
                     center.x - baseRadius * 1.35f,
                     center.y - baseRadius * 0.72f
                 ),
-                size = Size(baseRadius * 2.7f, baseRadius * 1.44f),
+                size = Size(
+                    baseRadius * 2.7f,
+                    baseRadius * 1.44f
+                ),
                 style = Stroke(width = 1.5.dp.toPx())
             )
         }
@@ -767,7 +763,10 @@ private fun GalaxyOrb(
                     center.x - baseRadius * 1.22f,
                     center.y - baseRadius * 0.86f
                 ),
-                size = Size(baseRadius * 2.44f, baseRadius * 1.72f),
+                size = Size(
+                    baseRadius * 2.44f,
+                    baseRadius * 1.72f
+                ),
                 style = Stroke(width = 1.dp.toPx())
             )
         }
@@ -777,7 +776,6 @@ private fun GalaxyOrb(
             val radius = baseRadius * (1.15f + (i % 4) * 0.16f)
             val x = center.x + kotlin.math.cos(angle).toFloat() * radius
             val y = center.y + kotlin.math.sin(angle).toFloat() * radius
-            val dotSize = if (i % 3 == 0) 3.2f else 1.7f
 
             drawCircle(
                 color = if (i % 2 == 0) {
@@ -785,7 +783,7 @@ private fun GalaxyOrb(
                 } else {
                     AlexPink.copy(alpha = 0.85f)
                 },
-                radius = dotSize,
+                radius = if (i % 3 == 0) 3.2f else 1.7f,
                 center = Offset(x, y)
             )
         }
@@ -801,11 +799,11 @@ private fun GalaxyStars(modifier: Modifier = Modifier) {
             Offset(0.74f, 0.31f),
             Offset(0.18f, 0.42f),
             Offset(0.88f, 0.58f),
-            Offset(0.1f, 0.71f),
+            Offset(0.10f, 0.71f),
             Offset(0.67f, 0.79f),
             Offset(0.34f, 0.88f),
             Offset(0.91f, 0.91f),
-            Offset(0.48f, 0.2f),
+            Offset(0.48f, 0.20f),
             Offset(0.26f, 0.61f),
             Offset(0.58f, 0.94f)
         )
@@ -840,9 +838,8 @@ private fun AlexTextChat(
     val listState = rememberLazyListState()
 
     LaunchedEffect(messages.size, busy) {
-        val lastIndex = messages.lastIndex
-        if (lastIndex >= 0) {
-            listState.animateScrollToItem(lastIndex)
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
@@ -922,7 +919,7 @@ private fun AlexTextChat(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "A",
+                            text = "A",
                             color = Color.White,
                             fontSize = 46.sp,
                             fontWeight = FontWeight.Light
@@ -943,7 +940,8 @@ private fun AlexTextChat(
                     Text(
                         text = "Напиши мне или перейди в голосовой режим.",
                         color = Color(0xFFB9B8D4),
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -1061,7 +1059,7 @@ private fun AlexTextChat(
                 enabled = draft.isNotBlank() && !busy,
                 modifier = Modifier.size(54.dp),
                 shape = CircleShape,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                contentPadding = PaddingValues(0.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AlexPurple
                 )
