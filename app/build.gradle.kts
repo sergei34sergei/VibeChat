@@ -54,5 +54,11 @@ dependencies {
     implementation("com.google.firebase:firebase-ai")
     implementation("com.google.firebase:firebase-appcheck-debug")
 
+    // Облачное хранение фотографий пользователей
+    implementation("com.google.firebase:firebase-storage")
+
+    // Отображение аватарок по ссылкам
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
