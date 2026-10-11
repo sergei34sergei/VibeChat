@@ -466,126 +466,53 @@ fun VibeLogin(
 ) {
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    val codeSent = status.contains("Код отправлен", true) || status.contains("Введи код вручную", true)
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(VibeBackground)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(20.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(VibeCardGradient)
-                .padding(22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(VibeGradient),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "V",
-                    color = Color.White,
-                    fontSize = 54.sp,
-                    fontWeight = FontWeight.Black
-                )
+    Box(Modifier.fillMaxSize().background(VibeBackground).statusBarsPadding().navigationBarsPadding()) {
+        Box(Modifier.align(Alignment.TopEnd).padding(top = 26.dp, end = 8.dp).size(170.dp).clip(CircleShape).background(Color(0x222DDBFF)))
+        Box(Modifier.align(Alignment.BottomStart).padding(start = 4.dp, bottom = 46.dp).size(210.dp).clip(CircleShape).background(Color(0x22AC55FF)))
+        Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Box(Modifier.size(88.dp).clip(RoundedCornerShape(28.dp)).background(VibeGradient).padding(2.dp).clip(RoundedCornerShape(26.dp)).background(Panel), contentAlignment = Alignment.Center) {
+                Text("V", color = Color.White, fontSize = 54.sp, fontWeight = FontWeight.Black)
             }
-
-            Text(
-                "VIBE CHAT",
-                color = Color.White,
-                fontSize = 29.sp,
-                fontWeight = FontWeight.Black
-            )
-
-            Text(
-                "ТВОЙ МИР ОБЩЕНИЯ",
-                color = Cyan,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                "Общайся. Находи друзей. Будь собой.",
-                color = Muted,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text("Номер телефона") },
-                placeholder = { Text("+49123456789") },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone
-                ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = VibeFieldColors
-            )
-
-            VibeButton(
-                text = if (busy) "Подожди..." else "Получить SMS-код",
-                onClick = { onSendCode(phone) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !busy
-            )
-
-            OutlinedTextField(
-                value = code,
-                onValueChange = {
-                    code = it.filter(Char::isDigit).take(6)
-                },
-                label = { Text("Код из SMS") },
-                placeholder = { Text("6 цифр") },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number
-                ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = VibeFieldColors
-            )
-
-            VibeButton(
-                text = if (busy) "Проверяем..." else "Войти в Vibe Chat",
-                onClick = { onVerifyCode(code) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !busy
-            )
-
-            if (busy) {
-                CircularProgressIndicator(
-                    color = Cyan,
-                    strokeWidth = 3.dp
-                )
+            Spacer(Modifier.height(18.dp))
+            Text("Твой мир ближе", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(6.dp))
+            Text("V I B E   C H A T", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(8.dp))
+            Text("Общайся по-настоящему.\nНаходи своих людей.", color = Muted, fontSize = 14.sp, textAlign = TextAlign.Center, lineHeight = 21.sp)
+            Spacer(Modifier.height(24.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(VibeCardGradient).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x223EDCFF)), contentAlignment = Alignment.Center) {
+                        Text(if (codeSent) "✓" else "✦", color = Cyan, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(11.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(if (codeSent) "Проверь свой телефон" else "Рады тебя видеть", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(if (codeSent) "Введи код из SMS ниже" else "Войди по номеру телефона", color = Muted, fontSize = 12.sp)
+                    }
+                }
+                OutlinedTextField(value = phone, onValueChange = { phone = it.filter { ch -> ch.isDigit() || ch == '+' }.take(16) }, label = { Text("Номер телефона") }, placeholder = { Text("+49 123 456789") }, leadingIcon = { Text("☎", color = Cyan, fontSize = 18.sp) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = VibeFieldColors)
+                VibeButton(text = if (busy && !codeSent) "Отправляем код…" else "Получить SMS-код  →", onClick = { onSendCode(phone) }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f).height(1.dp).background(BorderNeon))
+                    Text("  ПОДТВЕРЖДЕНИЕ  ", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Box(Modifier.weight(1f).height(1.dp).background(BorderNeon))
+                }
+                OutlinedTextField(value = code, onValueChange = { code = it.filter(Char::isDigit).take(6) }, label = { Text("6-значный код") }, placeholder = { Text("• • • • • •") }, leadingIcon = { Text("⌑", color = Cyan, fontSize = 22.sp) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = VibeFieldColors)
+                VibeButton(text = if (busy && codeSent) "Проверяем…" else "Войти в Vibe Chat  ✨", onClick = { onVerifyCode(code) }, modifier = Modifier.fillMaxWidth(), enabled = !busy)
+                if (busy) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(color = Cyan, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(9.dp)); Text("Секундочку, мы рядом…", color = Muted, fontSize = 11.sp)
+                }
+                if (status.isNotBlank()) Text(status, color = if (status.startsWith("Ошибка")) Pink else Cyan, textAlign = TextAlign.Center, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
             }
-
-            if (status.isNotBlank()) {
-                Text(
-                    text = status,
-                    color = if (status.startsWith("Ошибка")) Pink else Cyan,
-                    textAlign = TextAlign.Center,
-                    fontSize = 12.sp
-                )
-            }
+            Spacer(Modifier.height(16.dp))
+            Text("Твоё общение. Твои люди. Твой Vibe.", color = Muted, fontSize = 11.sp, textAlign = TextAlign.Center)
         }
     }
 }
-
 // =====================================================
 // МОДЕЛИ ДАННЫХ
 // =====================================================
@@ -1542,147 +1469,90 @@ private fun VibeChatsListScreen(
 // АЛЕКС AI
 // =====================================================
 
+private data class AlexBubble(val fromUser: Boolean, val text: String)
+
 @Composable
 private fun AlexAiScreen() {
     val scope = rememberCoroutineScope()
     var prompt by remember { mutableStateOf("") }
-
-    var answer by remember {
-        mutableStateOf(
-            "Привет! Я Алекс — AI-помощник Vibe Chat. Чем помочь?"
-        )
-    }
-
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
-
-    val model = remember {
-        Firebase.ai(
-            backend = GenerativeBackend.googleAI()
-        ).generativeModel("gemini-3.8-flash")
+    val conversation = remember {
+        mutableStateListOf(AlexBubble(false, "Привет! Я Алекс 💜\n\nЯ твой AI-помощник внутри Vibe Chat. Можем придумать идею, разобраться в сложной ситуации, написать сообщение или просто поговорить.\n\nС чего начнём?"))
     }
+    val model = remember { Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel("gemini-3.8-flash") }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        VibeSectionTitle("Алекс AI", "Твой помощник прямо в Vibe Chat")
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(VibeGradient)
-                    .padding(2.dp)
-                    .clip(CircleShape)
-                    .background(Panel),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "✦",
-                    color = Cyan,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Black
-                )
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(VibeCardGradient).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(58.dp).clip(CircleShape).background(VibeGradient).padding(2.dp).clip(CircleShape).background(Panel), contentAlignment = Alignment.Center) {
+                Text("✦", color = Cyan, fontSize = 31.sp, fontWeight = FontWeight.Black)
             }
-
-            Spacer(Modifier.width(10.dp))
-
-            Column {
-                Text("Алекс", color = Color.White, fontWeight = FontWeight.Bold)
-
-                Text(
-                    if (loading) "Формирует ответ..." else "AI-помощник",
-                    color = Cyan,
-                    fontSize = 11.sp
-                )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Алекс", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text(if (loading) "Собираю мысли…" else "Твой собеседник и помощник", color = Cyan, fontSize = 11.sp)
+                Spacer(Modifier.height(5.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(if (loading) Purple else Color(0xFF54E39B)))
+                    Spacer(Modifier.width(5.dp)); Text(if (loading) "Сейчас отвечу" else "На связи", color = Muted, fontSize = 10.sp)
+                }
             }
         }
-
         Spacer(Modifier.height(12.dp))
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(VibeCardGradient)
-                .padding(14.dp)
-        ) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item {
-                    Text(
-                        answer,
-                        color = Color.White,
-                        fontSize = 15.sp
-                    )
+        Text("Чем займёмся сегодня?", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf("💡 Идея", "❤️ Поддержка", "✍️ Текст").forEach { suggestion ->
+                Surface(onClick = { if (!loading) prompt = when {
+                    suggestion.contains("Идея") -> "Помоги придумать интересную идею для моего проекта"
+                    suggestion.contains("Поддержка") -> "Мне хочется поговорить. Поддержи меня по-доброму"
+                    else -> "Помоги написать красивое сообщение"
+                } }, shape = RoundedCornerShape(14.dp), color = PanelLight, contentColor = Color.White) {
+                    Text(suggestion, modifier = Modifier.padding(horizontal = 9.dp, vertical = 10.dp), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
-
-                if (error.isNotBlank()) {
-                    item {
-                        Spacer(Modifier.height(10.dp))
-                        Text(error, color = Pink, fontSize = 12.sp)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF0E1122)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+            items(conversation.size) { index ->
+                val message = conversation[index]
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start, verticalAlignment = Alignment.Top) {
+                    if (!message.fromUser) {
+                        Box(Modifier.padding(top = 3.dp).size(30.dp).clip(CircleShape).background(VibeGradient), contentAlignment = Alignment.Center) { Text("✦", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.width(7.dp))
+                    }
+                    Column(Modifier.widthIn(max = 290.dp).clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = if (message.fromUser) 20.dp else 5.dp, bottomEnd = if (message.fromUser) 5.dp else 20.dp)).background(if (message.fromUser) Brush.linearGradient(listOf(Color(0xFF6B42D8), Color(0xFF385BE8))) else VibeCardGradient).padding(13.dp)) {
+                        Text(if (message.fromUser) "Ты" else "Алекс ✦", color = if (message.fromUser) Color(0xFFDCD3FF) else Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp)); Text(message.text, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp)
                     }
                 }
             }
+            if (loading) item { Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(color = Cyan, strokeWidth = 2.dp, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("Алекс обдумывает ответ…", color = Muted, fontSize = 12.sp) } }
+            if (error.isNotBlank()) item { Text(error, color = Pink, fontSize = 12.sp) }
         }
-
         Spacer(Modifier.height(10.dp))
-
-        OutlinedTextField(
-            value = prompt,
-            onValueChange = { prompt = it.take(2000) },
-            placeholder = { Text("Спроси Алекса...") },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 4,
-            shape = RoundedCornerShape(16.dp),
-            colors = VibeFieldColors
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        VibeButton(
-            text = if (loading) {
-                "Алекс думает..."
-            } else {
-                "Отправить сообщение  ➤"
-            },
-            onClick = {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Panel).padding(7.dp), verticalAlignment = Alignment.Bottom) {
+            OutlinedTextField(value = prompt, onValueChange = { prompt = it.take(2000) }, placeholder = { Text("Расскажи Алексу…", color = Muted) }, modifier = Modifier.weight(1f), maxLines = 4, shape = RoundedCornerShape(17.dp), colors = VibeFieldColors)
+            Spacer(Modifier.width(7.dp))
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(17.dp)).background(if (loading || prompt.isBlank()) Brush.linearGradient(listOf(PanelLight, PanelLight)) else VibeGradient).clickable(enabled = !loading && prompt.isNotBlank()) {
                 val question = prompt.trim()
-
                 if (question.isNotBlank() && !loading) {
-                    loading = true
-                    error = ""
-                    answer = "Ты: $question\n\nАлекс печатает ответ..."
-                    prompt = ""
-
+                    conversation.add(AlexBubble(true, question)); prompt = ""; loading = true; error = ""
+                    val history = conversation.dropLast(1).takeLast(8).joinToString("\n") { (if (it.fromUser) "Пользователь" else "Алекс") + ": " + it.text }
+                    val fullPrompt = "Ты Алекс — тёплый, внимательный и дружелюбный AI-компаньон в мессенджере Vibe Chat. Общайся естественно, с эмпатией. Не притворяйся человеком и не утверждай, что испытываешь настоящие чувства. Отвечай на русском, если пользователь пишет по-русски. Не будь сухим и не злоупотребляй списками и эмодзи. Учитывай недавний контекст.\n\nИстория разговора:\n$history\n\nНовое сообщение пользователя:\n$question"
                     scope.launch {
                         try {
-                            val response = model.generateContent(question)
-
-                            answer =
-                                "Ты: $question\n\nАлекс: ${
-                                    response.text
-                                        ?: "Не удалось получить ответ."
-                                }"
+                            val response = model.generateContent(fullPrompt)
+                            conversation.add(AlexBubble(false, response.text?.takeIf { it.isNotBlank() } ?: "Я рядом. Попробуй сформулировать вопрос немного иначе 💜"))
                         } catch (e: Exception) {
-                            error =
-                                "Ошибка AI: ${
-                                    e.localizedMessage
-                                        ?: "проверь настройки Firebase AI"
-                                }"
-
-                            answer = "Не удалось получить ответ."
-                        } finally {
-                            loading = false
-                        }
+                            error = "Не удалось получить ответ. Проверь подключение и настройки Firebase AI."
+                            conversation.add(AlexBubble(false, "Кажется, сейчас я не смог подключиться к AI-сервису. Попробуй ещё раз чуть позже 💜"))
+                        } finally { loading = false }
                     }
                 }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !loading && prompt.isNotBlank()
-        )
+            }, contentAlignment = Alignment.Center) { Text("➤", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold) }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text("Алекс — AI-помощник. Он может ошибаться, важное стоит перепроверять.", color = Muted, fontSize = 9.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
 }
