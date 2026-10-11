@@ -364,7 +364,7 @@ fun PrivateChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp, bottom = 13.dp),
+                    .padding(top = 7.dp, bottom = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
@@ -375,7 +375,7 @@ fun PrivateChatScreen(
                         1.dp,
                         VibeChatBlue.copy(alpha = 0.45f)
                     ),
-                    modifier = Modifier.size(46.dp)
+                    modifier = Modifier.size(39.dp)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center
@@ -383,7 +383,7 @@ fun PrivateChatScreen(
                         Text(
                             text = "‹",
                             color = VibeChatBlue,
-                            fontSize = 35.sp,
+                            fontSize = 31.sp,
                             fontWeight = FontWeight.Light
                         )
                     }
@@ -394,7 +394,7 @@ fun PrivateChatScreen(
                 // Аватар с градиентной рамкой.
                 Box(
                     modifier = Modifier
-                        .size(54.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
                         .background(VibeChatGradient)
                         .padding(2.dp)
@@ -418,7 +418,7 @@ fun PrivateChatScreen(
                                 ?.uppercase()
                                 ?: "V",
                             color = Color.White,
-                            fontSize = 23.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                     }
@@ -432,8 +432,8 @@ fun PrivateChatScreen(
                     Text(
                         text = actualOtherName,
                         color = VibeChatText,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
 
@@ -477,8 +477,8 @@ fun PrivateChatScreen(
 
                 Box(
                     modifier = Modifier
-                        .size(39.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(VibeChatPanel)
                         .border(
                             1.dp,
@@ -490,7 +490,7 @@ fun PrivateChatScreen(
                     Text(
                         text = "✦",
                         color = VibeChatPink,
-                        fontSize = 22.sp
+                        fontSize = 19.sp
                     )
                 }
             }
@@ -542,10 +542,10 @@ fun PrivateChatScreen(
                     .weight(1f)
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(
-                    top = 18.dp,
-                    bottom = 18.dp
+                    top = 12.dp,
+                    bottom = 12.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(13.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (messages.isEmpty()) {
                     item(key = "chat_welcome") {
@@ -650,10 +650,10 @@ fun PrivateChatScreen(
                     val mine = message.authorId == myId
 
                     val bubbleShape = RoundedCornerShape(
-                        topStart = 20.dp,
-                        topEnd = 20.dp,
-                        bottomStart = if (mine) 20.dp else 6.dp,
-                        bottomEnd = if (mine) 6.dp else 20.dp
+                        topStart = 17.dp,
+                        topEnd = 17.dp,
+                        bottomStart = if (mine) 17.dp else 5.dp,
+                        bottomEnd = if (mine) 5.dp else 17.dp
                     )
 
                     Row(
@@ -691,7 +691,7 @@ fun PrivateChatScreen(
 
                         Column(
                             modifier = Modifier
-                                .widthIn(max = 300.dp)
+                                .widthIn(max = 280.dp)
                                 .clip(bubbleShape)
                                 .background(
                                     if (mine) {
@@ -712,7 +712,7 @@ fun PrivateChatScreen(
                                     }
                                 )
                                 .border(
-                                    width = 1.dp,
+                                    width = 0.6.dp,
                                     brush = Brush.linearGradient(
                                         if (mine) {
                                             listOf(
@@ -737,8 +737,8 @@ fun PrivateChatScreen(
                                     shape = bubbleShape
                                 )
                                 .padding(
-                                    horizontal = 15.dp,
-                                    vertical = 11.dp
+                                    horizontal = 12.dp,
+                                    vertical = 8.dp
                                 )
                         ) {
                             if (!mine) {
@@ -747,19 +747,19 @@ fun PrivateChatScreen(
                                         actualOtherName
                                     },
                                     color = VibeChatBlue,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
                                     maxLines = 1
                                 )
 
-                                Spacer(Modifier.height(5.dp))
+                                Spacer(Modifier.height(3.dp))
                             }
 
                             Text(
                                 text = message.text,
                                 color = VibeChatText,
-                                fontSize = 15.sp,
-                                lineHeight = 22.sp
+                                fontSize = 14.sp,
+                                lineHeight = 19.sp
                             )
 
                             message.createdAt?.let { timestamp ->
@@ -778,7 +778,7 @@ fun PrivateChatScreen(
                                     fontSize = 10.sp,
                                     modifier = Modifier
                                         .align(Alignment.End)
-                                        .padding(top = 6.dp)
+                                        .padding(top = 3.dp)
                                 )
                             }
                         }
@@ -790,7 +790,7 @@ fun PrivateChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 5.dp, bottom = 9.dp),
+                    .padding(top = 3.dp, bottom = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -818,7 +818,7 @@ fun PrivateChatScreen(
                                     input = (input + emoji).take(2000)
                                 }
                             }
-                            .padding(vertical = 9.dp),
+                            .padding(vertical = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -839,7 +839,7 @@ fun PrivateChatScreen(
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .defaultMinSize(minHeight = 54.dp)
+                        .defaultMinSize(minHeight = 46.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .background(VibeChatPanel)
                         .border(
@@ -848,8 +848,8 @@ fun PrivateChatScreen(
                             RoundedCornerShape(20.dp)
                         )
                         .padding(
-                            horizontal = 15.dp,
-                            vertical = 15.dp
+                            horizontal = 13.dp,
+                            vertical = 11.dp
                         ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
