@@ -698,4 +698,242 @@ fun AlexVoiceScreen() {
                     lineHeight = 21.sp
                 )
 
-                if (
+                if (voiceError.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        voiceError,
+                        color = Color(0xFFFFB86C),
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+
+                if (lastError.isNotBlank()) {
+                    Spacer(Modifier.height(10.dp))
+
+                    Text(
+                        "ТЕХНИЧЕСКАЯ ОШИБКА",
+                        color = Color(0xFFFFB86C),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        lastError,
+                        color = Color(0xFFFFD9B0),
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = {
+                    copyText(
+                        "Ошибка Gemini Firebase",
+                        lastError.ifBlank {
+                            voiceError.ifBlank {
+                                "Техническая ошибка пока не записана."
+                            }
+                        }
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = AlexCyan
+                )
+            ) {
+                Text("📋 Копировать ошибку")
+            }
+
+            OutlinedButton(
+                onClick = {
+                    copyText("Ответ Алекса", answer)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFFB7A5FF)
+                )
+            ) {
+                Text("📋 Копировать ответ Алекса")
+            }
+
+            if (busy) {
+                Spacer(Modifier.height(8.dp))
+
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = AlexCyan,
+                    trackColor = Color(0xFF202744)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    "Скажи или напиши Алексу…",
+                    color = Color(0xFF8792B7)
+                )
+            },
+            shape = RoundedCornerShape(18.dp),
+            maxLines = 3,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences
+            ),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = AlexCyan,
+                unfocusedBorderColor = Color(0xFF303957),
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                cursorColor = AlexCyan
+            )
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedButton(
+                onClick = {
+                    if (listening) {
+                        try {
+                            recognizer?.stopListening()
+                        } catch (_: Exception) {
+                            recognizer?.cancel()
+                        }
+
+                        listening = false
+                    } else if (
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        startRecognition()
+                    } else {
+                        micPermission.launch(
+                            Manifest.permission.RECORD_AUDIO
+                        )
+                    }
+                },
+                modifier = Modifier.weight(0.9f),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = AlexCyan
+                )
+            ) {
+                Text(
+                    if (listening) "■ Стоп" else "🎙 Микрофон",
+                    fontSize = 12.sp
+                )
+            }
+
+            Button(
+                onClick = {
+                    val question = draft.trim()
+
+                    if (question.isNotBlank() && !busy) {
+                        draft = ""
+                        busy = true
+                        voiceError = ""
+                        lastError = ""
+                        speaking = false
+
+                        scope.launch {
+                            try {
+                                val model = Firebase.ai(
+                                    backend = GenerativeBackend.googleAI()
+                                ).generativeModel("gemini-3.8-flash")
+
+                                val response = model.generateContent(
+                                    "Ты Алекс — спокойный, доброжелательный " +
+                                        "голосовой помощник приложения Vibe Chat. " +
+                                        "Отвечай на русском естественно, понятно " +
+                                        "и не слишком длинно. " +
+                                        "Пользователь говорит: $question"
+                                )
+
+                                val reply = response.text
+
+                                answer = reply
+                                    ?: "Gemini вернул пустой ответ. " +
+                                        "Попробуй задать вопрос ещё раз."
+
+                                if (reply.isNullOrBlank()) {
+                                    lastError =
+                                        "Модель не вернула текст ответа. " +
+                                            "Проверь настройки Gemini и Firebase."
+                                }
+
+                                if (ttsReady && !reply.isNullOrBlank()) {
+                                    speakText(reply)
+                                } else if (!ttsReady) {
+                                    speaking = false
+                                    voiceError =
+                                        "Ответ получен, но голос не готов. " +
+                                            "Проверь русский голос в Android."
+                                }
+                            } catch (e: Exception) {
+                                lastError = formatError(e)
+
+                                answer =
+                                    "Не удалось получить ответ от Алекса.\n\n" +
+                                        "Нажми «Копировать ошибку» и отправь " +
+                                        "скопированный текст в ChatGPT."
+
+                                speaking = false
+
+                                Toast.makeText(
+                                    context,
+                                    "Ошибка связи. Текст ошибки сохранён.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1.1f),
+                enabled = !busy && draft.isNotBlank(),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF7049D8),
+                    disabledContainerColor = Color(0xFF39334D)
+                )
+            ) {
+                Text(
+                    if (busy) "Думаю…" else "Спросить Алекса",
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(5.dp))
+
+        Text(
+            "ALEX AI • VIBE CHAT",
+            color = Color(0xFF63759B),
+            fontSize = 9.sp,
+            letterSpacing = 1.8.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
