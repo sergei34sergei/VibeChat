@@ -1,7 +1,10 @@
+
 package com.vibe.chat
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,12 +42,15 @@ private data class PrivateMessage(
     val createdAt: Timestamp?
 )
 
-private val NeonBackground = Color(0xFF090817)
-private val NeonPanel = Color(0xFF15122B)
-private val NeonPurple = Color(0xFF9B6BFF)
-private val NeonBlue = Color(0xFF62E9FF)
-private val NeonText = Color(0xFFF7F3FF)
-private val NeonMuted = Color(0xFFAAA4C8)
+private val VibeChatBackground = Color(0xFF090817)
+private val VibeChatPanel = Color(0xFF17152B)
+private val VibeChatPanelLight = Color(0xFF211D3C)
+private val VibeChatPurple = Color(0xFF9B6BFF)
+private val VibeChatBlue = Color(0xFF62E9FF)
+private val VibeChatPink = Color(0xFFFF70C5)
+private val VibeChatText = Color(0xFFF7F3FF)
+private val VibeChatMuted = Color(0xFFAAA4C8)
+private val VibeChatGreen = Color(0xFF54F5B2)
 
 @Composable
 fun PrivateChatScreen(
@@ -62,7 +68,7 @@ fun PrivateChatScreen(
     var input by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
-    var chatReady by remember(otherUserId, myId) {
+    var chatReady by remember(myId, otherUserId) {
         mutableStateOf(false)
     }
 
@@ -78,8 +84,8 @@ fun PrivateChatScreen(
         if (myId.isNotBlank()) {
             registration = db.collection("users")
                 .document(myId)
-                .addSnapshotListener { snap, _ ->
-                    myName = snap?.getString("name")
+                .addSnapshotListener { snapshot, _ ->
+                    myName = snapshot?.getString("name")
                         ?.takeIf { it.isNotBlank() }
                         ?: currentUser?.phoneNumber.orEmpty()
                             .ifBlank { "Пользователь" }
@@ -107,17 +113,17 @@ fun PrivateChatScreen(
                 messageRegistration = chatRef
                     .collection("messages")
                     .orderBy("createdAt")
-                    .addSnapshotListener { snapshot, e ->
-                        if (e != null) {
-                            error = "Не удалось загрузить сообщения: ${e.localizedMessage}"
+                    .addSnapshotListener { snapshot, exception ->
+                        if (exception != null) {
+                            error = "Не удалось загрузить сообщения: ${exception.localizedMessage}"
                         } else if (snapshot != null) {
-                            messages = snapshot.documents.map { doc ->
+                            messages = snapshot.documents.map { document ->
                                 PrivateMessage(
-                                    id = doc.id,
-                                    authorId = doc.getString("authorId").orEmpty(),
-                                    authorName = doc.getString("authorName").orEmpty(),
-                                    text = doc.getString("text").orEmpty(),
-                                    createdAt = doc.getTimestamp("createdAt")
+                                    id = document.id,
+                                    authorId = document.getString("authorId").orEmpty(),
+                                    authorName = document.getString("authorName").orEmpty(),
+                                    text = document.getString("text").orEmpty(),
+                                    createdAt = document.getTimestamp("createdAt")
                                 )
                             }
                             error = ""
@@ -135,8 +141,9 @@ fun PrivateChatScreen(
                 chatReady = true
                 error = ""
                 startMessagesListener()
-            }.addOnFailureListener { e ->
-                error = "Не удалось открыть чат: ${e.localizedMessage}"
+            }.addOnFailureListener { exception ->
+                chatReady = false
+                error = "Не удалось открыть чат: ${exception.localizedMessage}"
             }
         } else {
             chatReady = false
@@ -153,459 +160,572 @@ fun PrivateChatScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF1A1038),
-                        NeonBackground,
+                        Color(0xFF21133D),
+                        VibeChatBackground,
                         Color(0xFF100D24)
                     )
                 )
             )
-            .padding(horizontal = 14.dp)
     ) {
-        Row(
+        // Мягкие цветовые акценты на фоне
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .align(Alignment.TopEnd)
+                .padding(top = 70.dp, end = (-65).dp)
+                .size(190.dp)
+                .clip(CircleShape)
+                .background(VibeChatPurple.copy(alpha = 0.07f))
+        )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = (-85).dp, bottom = 100.dp)
+                .size(220.dp)
+                .clip(CircleShape)
+                .background(VibeChatBlue.copy(alpha = 0.045f))
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+                .padding(horizontal = 16.dp)
         ) {
-            Surface(
-                onClick = onBack,
-                shape = RoundedCornerShape(15.dp),
-                color = NeonPanel,
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    NeonBlue.copy(alpha = 0.55f)
-                )
+            // Шапка переписки
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier.size(
-                        width = 48.dp,
-                        height = 46.dp
+                Surface(
+                    onClick = onBack,
+                    shape = RoundedCornerShape(17.dp),
+                    color = VibeChatPanel,
+                    border = BorderStroke(
+                        1.dp,
+                        VibeChatBlue.copy(alpha = 0.35f)
                     ),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "‹",
+                            color = VibeChatBlue,
+                            fontSize = 35.sp,
+                            fontWeight = FontWeight.Light
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    VibeChatPurple,
+                                    Color(0xFF5945C8),
+                                    VibeChatBlue
+                                )
+                            ),
+                            CircleShape
+                        )
+                        .padding(2.dp)
+                        .background(VibeChatBackground, CircleShape)
+                        .padding(2.dp)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(VibeChatPurple, VibeChatBlue)
+                            ),
+                            CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "‹",
-                        color = NeonBlue,
-                        fontSize = 34.sp,
-                        fontWeight = FontWeight.Light
+                        text = otherUserName.firstOrNull()
+                            ?.uppercase()
+                            ?: "V",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold
                     )
                 }
-            }
 
-            Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(12.dp))
 
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(NeonPurple, NeonBlue)
-                        )
-                    )
-                    .border(
-                        1.dp,
-                        NeonBlue.copy(alpha = 0.7f),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    otherUserName.firstOrNull()?.uppercase() ?: "V",
-                    color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 22.sp
-                )
-            }
-
-            Spacer(Modifier.width(11.dp))
-
-            Column(Modifier.weight(1f)) {
-                Text(
-                    otherUserName,
-                    color = NeonText,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    maxLines = 1
-                )
-
-                Spacer(Modifier.height(4.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (chatReady) Color(0xFF54F5B2)
-                                else NeonMuted
-                            )
-                    )
-
-                    Spacer(Modifier.width(6.dp))
-
-                    Text(
-                        if (chatReady) "ЛИЧНЫЙ ЧАТ" else "ПОДКЛЮЧЕНИЕ…",
-                        color = NeonBlue,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.2.sp
-                    )
-                }
-            }
-
-            Text(
-                "✦",
-                color = NeonPurple,
-                fontSize = 27.sp
-            )
-        }
-
-        HorizontalDivider(
-            color = NeonPurple.copy(alpha = 0.5f),
-            thickness = 1.dp
-        )
-
-        if (error.isNotBlank()) {
-            Surface(
-                color = Color(0xFF381B35),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            ) {
-                Text(
-                    error,
-                    color = Color(0xFFFFB7C5),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(10.dp)
-                )
-            }
-        }
-
-        if (messages.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(82.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(
-                                        NeonPurple.copy(alpha = 0.22f),
-                                        NeonBlue.copy(alpha = 0.08f)
-                                    )
-                                )
-                            )
-                            .border(
-                                1.dp,
-                                NeonBlue.copy(alpha = 0.65f),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
+                    Text(
+                        text = otherUserName.ifBlank { "Собеседник" },
+                        color = VibeChatText,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+
+                    Spacer(Modifier.height(5.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .background(
+                                    if (chatReady) VibeChatGreen
+                                    else VibeChatMuted,
+                                    CircleShape
+                                )
+                        )
+
+                        Spacer(Modifier.width(6.dp))
+
                         Text(
-                            "✦",
-                            color = NeonBlue,
-                            fontSize = 40.sp
+                            text = if (chatReady) {
+                                "ЛИЧНАЯ ПЕРЕПИСКА"
+                            } else {
+                                "ПОДКЛЮЧЕНИЕ…"
+                            },
+                            color = VibeChatMuted,
+                            fontSize = 9.sp,
+                            letterSpacing = 1.sp
                         )
                     }
+                }
 
-                    Spacer(Modifier.height(18.dp))
-
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(VibeChatPanel),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        if (chatReady) "Твоя личная переписка"
-                        else "Открываем чат…",
-                        color = NeonText,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(Modifier.height(7.dp))
-
-                    Text(
-                        if (chatReady) {
-                            "Напиши первое сообщение 👋"
-                        } else {
-                            "Подключаемся к Firebase"
-                        },
-                        color = NeonMuted,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center
+                        "✦",
+                        color = VibeChatPink,
+                        fontSize = 23.sp
                     )
                 }
             }
-        } else {
-            LazyColumn(
-                state = listState,
+
+            // Тонкая светящаяся линия
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentPadding = PaddingValues(
-                    top = 14.dp,
-                    bottom = 14.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(messages, key = { it.id }) { message ->
-                    val mine = message.authorId == myId
-
-                    val bubbleShape = RoundedCornerShape(
-                        topStart = 20.dp,
-                        topEnd = 20.dp,
-                        bottomStart = if (mine) 20.dp else 5.dp,
-                        bottomEnd = if (mine) 5.dp else 20.dp
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                VibeChatPurple.copy(alpha = 0.8f),
+                                VibeChatBlue.copy(alpha = 0.65f),
+                                Color.Transparent
+                            )
+                        )
                     )
+            )
 
+            if (error.isNotBlank()) {
+                Surface(
+                    color = Color(0xFF351D38),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        Color(0xFFFF83B6).copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                ) {
+                    Text(
+                        text = error,
+                        color = Color(0xFFFFB8D2),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+
+            if (messages.isEmpty()) {
+                // Экран приветствия, когда переписка ещё пустая
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = if (mine) {
-                            Alignment.End
-                        } else {
-                            Alignment.Start
-                        }
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 18.dp)
                     ) {
-                        Column(
+                        Box(
                             modifier = Modifier
-                                .widthIn(max = 300.dp)
-                                .clip(bubbleShape)
+                                .size(100.dp)
                                 .background(
-                                    if (mine) {
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF7545C8),
-                                                Color(0xFF4031A0)
-                                            )
+                                    Brush.linearGradient(
+                                        listOf(
+                                            VibeChatPurple.copy(alpha = 0.23f),
+                                            VibeChatBlue.copy(alpha = 0.10f)
                                         )
-                                    } else {
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF24203D),
-                                                Color(0xFF19162D)
-                                            )
-                                        )
-                                    }
+                                    ),
+                                    CircleShape
                                 )
                                 .border(
                                     1.dp,
-                                    if (mine) {
-                                        NeonPurple.copy(alpha = 0.8f)
-                                    } else {
-                                        NeonBlue.copy(alpha = 0.35f)
-                                    },
-                                    bubbleShape
-                                )
-                                .padding(
+                                    VibeChatBlue.copy(alpha = 0.45f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "✦",
+                                color = VibeChatBlue,
+                                fontSize = 45.sp
+                            )
+                        }
+
+                        Spacer(Modifier.height(22.dp))
+
+                        Text(
+                            text = if (chatReady) {
+                                "Всё начинается с общения"
+                            } else {
+                                "Создаём ваше пространство"
+                            },
+                            color = VibeChatText,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(Modifier.height(9.dp))
+
+                        Text(
+                            text = if (chatReady) {
+                                "Напиши ${otherUserName.ifBlank { "собеседнику" }} первое сообщение 👋"
+                            } else {
+                                "Подключаем личную переписку Vibe Chat"
+                            },
+                            color = VibeChatMuted,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(Modifier.height(20.dp))
+
+                        Surface(
+                            color = VibeChatPanel.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(50.dp),
+                            border = BorderStroke(
+                                1.dp,
+                                VibeChatPurple.copy(alpha = 0.35f)
+                            )
+                        ) {
+                            Text(
+                                text = "✧  ТВОЁ ПРОСТРАНСТВО ДЛЯ ОБЩЕНИЯ  ✧",
+                                color = VibeChatBlue,
+                                fontSize = 9.sp,
+                                letterSpacing = 0.7.sp,
+                                modifier = Modifier.padding(
                                     horizontal = 14.dp,
                                     vertical = 10.dp
                                 )
-                        ) {
-                            if (!mine) {
-                                Text(
-                                    message.authorName.ifBlank {
-                                        otherUserName
-                                    },
-                                    color = NeonBlue,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                Spacer(Modifier.height(4.dp))
-                            }
-
-                            Text(
-                                message.text,
-                                color = NeonText,
-                                fontSize = 15.sp,
-                                lineHeight = 21.sp
                             )
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(
+                        top = 18.dp,
+                        bottom = 18.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(13.dp)
+                ) {
+                    items(
+                        items = messages,
+                        key = { it.id }
+                    ) { message ->
+                        val mine = message.authorId == myId
 
-                            message.createdAt?.let { timestamp ->
+                        val bubbleShape = RoundedCornerShape(
+                            topStart = 20.dp,
+                            topEnd = 20.dp,
+                            bottomStart = if (mine) 20.dp else 6.dp,
+                            bottomEnd = if (mine) 6.dp else 20.dp
+                        )
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = if (mine) {
+                                Alignment.End
+                            } else {
+                                Alignment.Start
+                            }
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .widthIn(max = 310.dp)
+                                    .clip(bubbleShape)
+                                    .background(
+                                        if (mine) {
+                                            Brush.linearGradient(
+                                                listOf(
+                                                    Color(0xFF8453D9),
+                                                    Color(0xFF4A3AA7)
+                                                )
+                                            )
+                                        } else {
+                                            Brush.linearGradient(
+                                                listOf(
+                                                    Color(0xFF282340),
+                                                    Color(0xFF1B1830)
+                                                )
+                                            )
+                                        }
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        brush = Brush.linearGradient(
+                                            if (mine) {
+                                                listOf(
+                                                    VibeChatPink.copy(alpha = 0.55f),
+                                                    VibeChatBlue.copy(alpha = 0.55f)
+                                                )
+                                            } else {
+                                                listOf(
+                                                    VibeChatBlue.copy(alpha = 0.35f),
+                                                    VibeChatPurple.copy(alpha = 0.25f)
+                                                )
+                                            }
+                                        ),
+                                        shape = bubbleShape
+                                    )
+                                    .padding(
+                                        horizontal = 15.dp,
+                                        vertical = 11.dp
+                                    )
+                            ) {
+                                if (!mine) {
+                                    Text(
+                                        text = message.authorName
+                                            .ifBlank { otherUserName },
+                                        color = VibeChatBlue,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    Spacer(Modifier.height(5.dp))
+                                }
+
                                 Text(
-                                    SimpleDateFormat(
-                                        "HH:mm",
-                                        Locale.getDefault()
-                                    ).format(
-                                        Date(timestamp.toDate().time)
-                                    ),
-                                    color = if (mine) {
-                                        Color(0xFFD8CAFF)
-                                    } else {
-                                        NeonMuted
-                                    },
-                                    fontSize = 10.sp,
-                                    modifier = Modifier
-                                        .align(Alignment.End)
-                                        .padding(top = 5.dp)
+                                    text = message.text,
+                                    color = VibeChatText,
+                                    fontSize = 15.sp,
+                                    lineHeight = 22.sp
                                 )
+
+                                message.createdAt?.let { timestamp ->
+                                    Text(
+                                        text = SimpleDateFormat(
+                                            "HH:mm",
+                                            Locale.getDefault()
+                                        ).format(
+                                            Date(timestamp.toDate().time)
+                                        ),
+                                        color = if (mine) {
+                                            Color(0xFFE2D7FF)
+                                        } else {
+                                            VibeChatMuted
+                                        },
+                                        fontSize = 10.sp,
+                                        modifier = Modifier
+                                            .align(Alignment.End)
+                                            .padding(top = 6.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 5.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            listOf("😀", "❤️", "😂", "🔥", "👍", "🥰", "😍", "✨")
-                .forEach { emoji ->
-                    Surface(
-                        onClick = {
-                            if (input.length < 2000) {
-                                input += emoji
-                            }
-                        },
-                        color = NeonPanel,
-                        shape = RoundedCornerShape(11.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            NeonPurple.copy(alpha = 0.4f)
-                        )
-                    ) {
-                        Text(
-                            emoji,
-                            fontSize = 18.sp,
-                            modifier = Modifier.padding(
-                                horizontal = 5.dp,
-                                vertical = 6.dp
-                            )
-                        )
-                    }
-                }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 10.dp, top = 2.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
+            // Быстрые реакции
             Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .defaultMinSize(minHeight = 52.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(NeonPanel)
-                    .border(
-                        1.dp,
-                        NeonBlue.copy(alpha = 0.65f),
-                        RoundedCornerShape(18.dp)
-                    )
-                    .padding(
-                        horizontal = 14.dp,
-                        vertical = 14.dp
-                    ),
+                    .fillMaxWidth()
+                    .padding(top = 6.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BasicTextField(
-                    value = input,
-                    onValueChange = { input = it.take(2000) },
-                    modifier = Modifier.weight(1f),
-                    textStyle = TextStyle(
-                        color = NeonText,
-                        fontSize = 15.sp
-                    ),
-                    cursorBrush = Brush.verticalGradient(
-                        listOf(NeonBlue, NeonPurple)
-                    ),
-                    decorationBox = { innerTextField ->
-                        Box {
-                            if (input.isEmpty()) {
-                                Text(
-                                    "Сообщение…",
-                                    color = NeonMuted,
-                                    fontSize = 15.sp
+                listOf("😀", "❤️", "😂", "🔥", "👍", "🥰", "✨")
+                    .forEach { emoji ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(VibeChatPanel)
+                                .border(
+                                    1.dp,
+                                    VibeChatPurple.copy(alpha = 0.30f),
+                                    RoundedCornerShape(12.dp)
                                 )
-                            }
-                            innerTextField()
+                                .clickable {
+                                    if (input.length < 2000) {
+                                        input = (input + emoji).take(2000)
+                                    }
+                                }
+                                .padding(vertical = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = emoji,
+                                fontSize = 17.sp
+                            )
                         }
                     }
-                )
             }
 
-            Spacer(Modifier.width(9.dp))
-
-            Surface(
-                onClick = {
-                    val textToSend = input.trim()
-
-                    if (
-                        textToSend.isNotBlank() &&
-                        chatReady &&
-                        myId.isNotBlank() &&
-                        !sending
-                    ) {
-                        sending = true
-                        error = ""
-
-                        db.collection("chats")
-                            .document(chatId)
-                            .collection("messages")
-                            .add(
-                                mapOf(
-                                    "text" to textToSend,
-                                    "authorId" to myId,
-                                    "authorName" to myName,
-                                    "createdAt" to FieldValue.serverTimestamp()
-                                )
-                            )
-                            .addOnSuccessListener {
-                                input = ""
-                                sending = false
-                            }
-                            .addOnFailureListener { e ->
-                                error = "Не удалось отправить: ${e.localizedMessage}"
-                                sending = false
-                            }
-                    }
-                },
-                enabled = input.isNotBlank() && chatReady && !sending,
-                shape = RoundedCornerShape(17.dp),
-                color = Color.Transparent,
-                contentColor = Color.White,
+            // Поле сообщения и кнопка отправки
+            Row(
                 modifier = Modifier
-                    .size(52.dp)
-                    .background(
-                        brush = Brush.linearGradient(
-                            listOf(
-                                NeonPurple,
-                                Color(0xFF5548D9),
-                                NeonBlue
-                            )
-                        ),
-                        shape = RoundedCornerShape(17.dp)
-                    )
-                    .border(
-                        1.dp,
-                        NeonBlue.copy(alpha = 0.75f),
-                        RoundedCornerShape(17.dp)
-                    )
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.Bottom
             ) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 54.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(VibeChatPanel)
+                        .border(
+                            1.dp,
+                            VibeChatBlue.copy(alpha = 0.42f),
+                            RoundedCornerShape(20.dp)
+                        )
+                        .padding(
+                            horizontal = 15.dp,
+                            vertical = 15.dp
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BasicTextField(
+                        value = input,
+                        onValueChange = {
+                            input = it.take(2000)
+                        },
+                        modifier = Modifier.weight(1f),
+                        textStyle = TextStyle(
+                            color = VibeChatText,
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp
+                        ),
+                        cursorBrush = Brush.verticalGradient(
+                            listOf(VibeChatBlue, VibeChatPurple)
+                        ),
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (input.isEmpty()) {
+                                    Text(
+                                        text = "Напиши что-нибудь…",
+                                        color = VibeChatMuted,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                }
+
+                Spacer(Modifier.width(10.dp))
+
+                val canSend = input.isNotBlank() &&
+                    chatReady &&
+                    myId.isNotBlank() &&
+                    !sending
+
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(19.dp))
+                        .background(
+                            if (canSend) {
+                                Brush.linearGradient(
+                                    listOf(
+                                        VibeChatPurple,
+                                        Color(0xFF5D4BDB),
+                                        VibeChatBlue
+                                    )
+                                )
+                            } else {
+                                Brush.linearGradient(
+                                    listOf(
+                                        Color(0xFF39324F),
+                                        Color(0xFF29243C)
+                                    )
+                                )
+                            }
+                        )
+                        .border(
+                            1.dp,
+                            if (canSend) {
+                                VibeChatBlue.copy(alpha = 0.75f)
+                            } else {
+                                VibeChatMuted.copy(alpha = 0.20f)
+                            },
+                            RoundedCornerShape(19.dp)
+                        )
+                        .clickable(enabled = canSend) {
+                            val textToSend = input.trim()
+
+                            if (textToSend.isNotBlank()) {
+                                sending = true
+                                error = ""
+
+                                db.collection("chats")
+                                    .document(chatId)
+                                    .collection("messages")
+                                    .add(
+                                        mapOf(
+                                            "text" to textToSend,
+                                            "authorId" to myId,
+                                            "authorName" to myName,
+                                            "createdAt" to FieldValue.serverTimestamp()
+                                        )
+                                    )
+                                    .addOnSuccessListener {
+                                        input = ""
+                                        sending = false
+                                    }
+                                    .addOnFailureListener { exception ->
+                                        error = "Не удалось отправить: ${exception.localizedMessage}"
+                                        sending = false
+                                    }
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        if (sending) "…" else "➤",
+                        text = if (sending) "…" else "➤",
+                        color = Color.White,
                         fontSize = 23.sp,
                         fontWeight = FontWeight.Bold
                     )
