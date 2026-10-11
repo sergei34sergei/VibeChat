@@ -1,3 +1,4 @@
+
 package com.vibe.chat
 
 import android.graphics.Bitmap
@@ -16,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,7 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -46,6 +46,7 @@ import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -92,8 +93,8 @@ private fun VibeButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = 46.dp),
-        shape = RoundedCornerShape(15.dp),
+        modifier = modifier.heightIn(min = 44.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Purple,
             contentColor = Color.White,
@@ -114,6 +115,7 @@ private fun VibeAvatar(
         Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = "Аватар",
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             modifier = Modifier
                 .size(size.dp)
                 .clip(CircleShape)
@@ -142,9 +144,14 @@ private fun VibeSectionTitle(title: String, subtitle: String) {
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(top = 5.dp, bottom = 12.dp)
+            .padding(top = 5.dp, bottom = 10.dp)
     ) {
-        Text(title, color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
+        Text(
+            title,
+            color = Color.White,
+            fontSize = 23.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
         Spacer(Modifier.height(4.dp))
         Text(subtitle, color = Muted, fontSize = 12.sp)
     }
@@ -179,7 +186,10 @@ class MainActivity : ComponentActivity() {
                     surface = Panel
                 )
             ) {
-                Surface(Modifier.fillMaxSize(), color = Dark) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = Dark
+                ) {
                     if (signedIn) {
                         VibeHome(
                             phone = userPhone,
@@ -206,6 +216,7 @@ class MainActivity : ComponentActivity() {
 
     private fun sendCode(phone: String) {
         val number = phone.trim()
+
         if (number.isBlank() || !number.startsWith("+")) {
             status = "Введи номер с кодом страны, например +49123456789"
             return
@@ -228,7 +239,8 @@ class MainActivity : ComponentActivity() {
                         .addOnCompleteListener(this@MainActivity) { task ->
                             busy = false
                             if (task.isSuccessful) {
-                                userPhone = auth.currentUser?.phoneNumber.orEmpty()
+                                userPhone =
+                                    auth.currentUser?.phoneNumber.orEmpty()
                                 signedIn = true
                                 status = ""
                             } else {
@@ -266,10 +278,12 @@ class MainActivity : ComponentActivity() {
 
     private fun verifyCode(code: String) {
         val id = verificationId
+
         if (id == null) {
             status = "Сначала нажми «Получить SMS-код»."
             return
         }
+
         if (code.length != 6) {
             status = "Код должен содержать 6 цифр."
             return
@@ -278,19 +292,21 @@ class MainActivity : ComponentActivity() {
         busy = true
         status = "Проверяем код..."
 
-        auth.signInWithCredential(PhoneAuthProvider.getCredential(id, code))
-            .addOnCompleteListener(this) { task ->
-                busy = false
-                if (task.isSuccessful) {
-                    userPhone = auth.currentUser?.phoneNumber.orEmpty()
-                    signedIn = true
-                    status = ""
-                } else {
-                    status = "Ошибка входа: ${
-                        task.exception?.localizedMessage ?: "неверный код"
-                    }"
-                }
+        auth.signInWithCredential(
+            PhoneAuthProvider.getCredential(id, code)
+        ).addOnCompleteListener(this) { task ->
+            busy = false
+
+            if (task.isSuccessful) {
+                userPhone = auth.currentUser?.phoneNumber.orEmpty()
+                signedIn = true
+                status = ""
+            } else {
+                status = "Ошибка входа: ${
+                    task.exception?.localizedMessage ?: "неверный код"
+                }"
             }
+        }
     }
 }
 
@@ -316,14 +332,27 @@ fun VibeLogin(
         Column(
             Modifier
                 .fillMaxWidth()
-                .background(Panel, RoundedCornerShape(28.dp))
+                .background(Panel, RoundedCornerShape(26.dp))
                 .padding(22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(13.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             VibeAvatar("VIBE", 76)
-            Text("VIBE CHAT", color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
-            Text("ТВОЙ МИР ОБЩЕНИЯ", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+            Text(
+                "VIBE CHAT",
+                color = Color.White,
+                fontSize = 29.sp,
+                fontWeight = FontWeight.Black
+            )
+
+            Text(
+                "ТВОЙ МИР ОБЩЕНИЯ",
+                color = Cyan,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+
             Text(
                 "Общайся. Находи друзей. Будь собой.",
                 color = Muted,
@@ -336,10 +365,12 @@ fun VibeLogin(
                 onValueChange = { phone = it },
                 label = { Text("Номер телефона") },
                 placeholder = { Text("+49123456789") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone
+                ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(15.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = VibeFieldColors
             )
 
@@ -352,12 +383,16 @@ fun VibeLogin(
 
             OutlinedTextField(
                 value = code,
-                onValueChange = { code = it.filter(Char::isDigit).take(6) },
+                onValueChange = {
+                    code = it.filter(Char::isDigit).take(6)
+                },
                 label = { Text("Код из SMS") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number
+                ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(15.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = VibeFieldColors
             )
 
@@ -368,7 +403,9 @@ fun VibeLogin(
                 !busy
             )
 
-            if (busy) CircularProgressIndicator(color = Cyan)
+            if (busy) {
+                CircularProgressIndicator(color = Cyan)
+            }
 
             if (status.isNotBlank()) {
                 Text(
@@ -385,7 +422,8 @@ fun VibeLogin(
 private data class VibeUser(
     val id: String,
     val name: String,
-    val phone: String
+    val phone: String,
+    val bio: String = ""
 )
 
 private data class ConversationPreview(
@@ -410,6 +448,7 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
     var privateChatUserId by remember { mutableStateOf<String?>(null) }
     var privateChatUserName by remember { mutableStateOf("") }
 
+    val context = LocalContext.current
     val db = remember { FirebaseFirestore.getInstance() }
     val auth = remember { FirebaseAuth.getInstance() }
     val currentUser = auth.currentUser
@@ -429,12 +468,16 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
     ) { uri ->
         if (uri != null) {
             try {
-                contentResolverSafe(uri)
-                avatarUri = uri
-                profileMessage = "Фотография выбрана. Нажми «Сохранить профиль»."
-            } catch (e: Exception) {
-                profileMessage = "Не удалось открыть фотографию."
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {
+                // Некоторые провайдеры не поддерживают сохранение разрешения.
             }
+
+            avatarUri = uri
+            profileMessage = "Фото выбрано. Нажми «Сохранить профиль»."
         }
     }
 
@@ -446,36 +489,42 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                 .document(myId)
                 .addSnapshotListener { snapshot, exception ->
                     if (exception != null) {
-                        profileMessage = "Ошибка профиля: ${exception.localizedMessage}"
+                        profileMessage =
+                            "Ошибка профиля: ${exception.localizedMessage}"
                     } else if (snapshot != null) {
                         savedName = snapshot.getString("name").orEmpty()
+
                         if (!profileLoaded) {
                             nameInput = savedName
                             bioInput = snapshot.getString("bio").orEmpty()
+
                             val savedUri = snapshot.getString("avatarUri")
                             if (!savedUri.isNullOrBlank()) {
-                                try {
-                                    avatarUri = Uri.parse(savedUri)
+                                avatarUri = try {
+                                    Uri.parse(savedUri)
                                 } catch (_: Exception) {
-                                    avatarUri = null
+                                    null
                                 }
                             }
+
                             profileLoaded = true
                         }
                     }
                 }
         }
 
-        onDispose { registration?.remove() }
+        onDispose {
+            registration?.remove()
+        }
     }
 
     LaunchedEffect(avatarUri) {
         avatarBitmap = null
         val uri = avatarUri ?: return@LaunchedEffect
+
         try {
-            val stream = contentResolverSafe(uri)
-            stream?.use {
-                avatarBitmap = BitmapFactory.decodeStream(it)
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                avatarBitmap = BitmapFactory.decodeStream(stream)
             }
         } catch (_: Exception) {
             avatarBitmap = null
@@ -492,7 +541,12 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                    .padding(
+                        start = 16.dp,
+                        end = 10.dp,
+                        top = 8.dp,
+                        bottom = 8.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -501,18 +555,30 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                         .background(VibeGradient, RoundedCornerShape(13.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("V", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        "V",
+                        color = Color.White,
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Black
+                    )
                 }
 
                 Spacer(Modifier.width(10.dp))
 
                 Column(Modifier.weight(1f)) {
-                    Text("VIBE CHAT", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        "VIBE CHAT",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black
+                    )
+
                     Text(
                         when (tab) {
                             "Чаты" -> "Твои переписки"
                             "Люди" -> "Найди собеседника"
                             "Алекс" -> "Твой AI-помощник"
+                            "Общий чат" -> "Общение со всеми"
                             else -> "Твой аккаунт"
                         },
                         color = Cyan,
@@ -526,7 +592,11 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
             }
         }
 
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
             if (privateChatUserId != null) {
                 PrivateChatScreen(
                     otherUserId = privateChatUserId!!,
@@ -567,7 +637,9 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                         avatarBitmap = avatarBitmap,
                         onNameChange = { nameInput = it.take(40) },
                         onBioChange = { bioInput = it.take(160) },
-                        onPickAvatar = { avatarPicker.launch(arrayOf("image/*")) },
+                        onPickAvatar = {
+                            avatarPicker.launch(arrayOf("image/*"))
+                        },
                         onSave = {
                             val uid = currentUser?.uid
                             val cleanName = nameInput.trim()
@@ -593,7 +665,7 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
 
                                 db.collection("users")
                                     .document(uid)
-                                    .set(data, com.google.firebase.firestore.SetOptions.merge())
+                                    .set(data, SetOptions.merge())
                                     .addOnSuccessListener {
                                         savedName = cleanName
                                         savingProfile = false
@@ -601,9 +673,10 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                                     }
                                     .addOnFailureListener { e ->
                                         savingProfile = false
-                                        profileMessage = "Не удалось сохранить: ${
-                                            e.localizedMessage ?: "ошибка Firebase"
-                                        }"
+                                        profileMessage =
+                                            "Не удалось сохранить: ${
+                                                e.localizedMessage ?: "ошибка Firebase"
+                                            }"
                                     }
                             }
                         },
@@ -628,9 +701,15 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                         selected = tab == item ||
                             (item == "Чаты" && tab == "Общий чат"),
                         onClick = { tab = item },
-                        icon = { Text(icons[index], fontSize = 20.sp) },
+                        icon = {
+                            Text(icons[index], fontSize = 20.sp)
+                        },
                         label = {
-                            Text(item, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                            Text(
+                                item,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         },
                         alwaysShowLabel = true,
                         colors = NavigationBarItemDefaults.colors(
@@ -642,19 +721,6 @@ fun VibeHome(phone: String, onLogout: () -> Unit) {
                     )
                 }
             }
-        }
-    }
-}
-
-// Получаем доступ к выбранному изображению через ContentResolver.
-@Composable
-private fun contentResolverSafe(uri: Uri): java.io.InputStream? {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    return remember(uri) {
-        try {
-            context.contentResolver.openInputStream(uri)
-        } catch (_: Exception) {
-            null
         }
     }
 }
@@ -683,7 +749,7 @@ fun VibeProfile(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 Column(
@@ -693,14 +759,14 @@ fun VibeProfile(
                             Brush.linearGradient(
                                 listOf(Color(0xFF30205A), Color(0xFF192D55))
                             ),
-                            RoundedCornerShape(26.dp)
+                            RoundedCornerShape(24.dp)
                         )
-                        .padding(22.dp),
+                        .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     VibeAvatar(
                         nameInput.ifBlank { savedName.ifBlank { "Vibe" } },
-                        104,
+                        100,
                         avatarBitmap
                     )
 
@@ -721,10 +787,20 @@ fun VibeProfile(
                         fontSize = 12.sp
                     )
 
+                    if (bioInput.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            bioInput,
+                            color = Color.White.copy(alpha = 0.85f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
                     Spacer(Modifier.height(14.dp))
 
                     VibeButton(
-                        "📷  Выбрать фотографию",
+                        "📷 Выбрать фотографию",
                         onPickAvatar,
                         Modifier.fillMaxWidth()
                     )
@@ -732,7 +808,7 @@ fun VibeProfile(
                     Spacer(Modifier.height(6.dp))
 
                     Text(
-                        "Фото выбирается из галереи этого телефона.",
+                        "Фотография выбирается из галереи телефона.",
                         color = Muted,
                         fontSize = 11.sp,
                         textAlign = TextAlign.Center
@@ -744,10 +820,15 @@ fun VibeProfile(
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .background(Panel, RoundedCornerShape(22.dp))
-                        .padding(16.dp)
+                        .background(Panel, RoundedCornerShape(20.dp))
+                        .padding(15.dp)
                 ) {
-                    Text("ТВОИ ДАННЫЕ", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "ТВОИ ДАННЫЕ",
+                        color = Cyan,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     Spacer(Modifier.height(10.dp))
 
@@ -758,7 +839,7 @@ fun VibeProfile(
                         placeholder = { Text("Как тебя называть?") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(15.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = VibeFieldColors
                     )
 
@@ -770,12 +851,12 @@ fun VibeProfile(
                         label = { Text("О себе") },
                         placeholder = { Text("Напиши пару слов о себе") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(15.dp),
+                        shape = RoundedCornerShape(14.dp),
                         maxLines = 4,
                         colors = VibeFieldColors
                     )
 
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(12.dp))
 
                     VibeButton(
                         if (saving) "Сохраняем..." else "Сохранить профиль",
@@ -803,7 +884,9 @@ fun VibeProfile(
                     color = Muted,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
                 )
             }
         }
@@ -824,21 +907,32 @@ fun VibeUsers(
 
     DisposableEffect(myId) {
         loading = true
+
         val registration = db.collection("users")
             .addSnapshotListener { snapshot, exception ->
                 loading = false
+
                 if (exception != null) {
-                    error = "Не удалось загрузить пользователей: ${exception.localizedMessage}"
+                    error =
+                        "Не удалось загрузить пользователей: ${exception.localizedMessage}"
                 } else if (snapshot != null) {
                     users = snapshot.documents.mapNotNull { doc ->
                         val name = doc.getString("name")?.trim().orEmpty()
-                        if (name.isBlank()) null
-                        else VibeUser(
-                            doc.id,
-                            name,
-                            doc.getString("phone").orEmpty()
-                        )
-                    }.sortedBy { it.name.lowercase(Locale.getDefault()) }
+
+                        if (name.isBlank()) {
+                            null
+                        } else {
+                            VibeUser(
+                                id = doc.id,
+                                name = name,
+                                phone = doc.getString("phone").orEmpty(),
+                                bio = doc.getString("bio").orEmpty()
+                            )
+                        }
+                    }.sortedBy {
+                        it.name.lowercase(Locale.getDefault())
+                    }
+
                     error = ""
                 }
             }
@@ -848,11 +942,18 @@ fun VibeUsers(
 
     val visibleUsers = users.filter {
         it.id != myId &&
-            (it.name.contains(search.trim(), true) ||
-                it.phone.contains(search.trim(), true))
+            (
+                it.name.contains(search.trim(), true) ||
+                    it.phone.contains(search.trim(), true) ||
+                    it.bio.contains(search.trim(), true)
+                )
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
         VibeSectionTitle("Люди", "Найди друзей и начни общение")
 
         OutlinedTextField(
@@ -861,7 +962,7 @@ fun VibeUsers(
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Поиск по имени или номеру") },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(15.dp),
             colors = VibeFieldColors
         )
 
@@ -869,7 +970,7 @@ fun VibeUsers(
             Text(error, color = Pink, fontSize = 12.sp)
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(9.dp))
 
         when {
             loading -> Box(
@@ -886,12 +987,17 @@ fun VibeUsers(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("👥", fontSize = 42.sp)
                     Spacer(Modifier.height(10.dp))
+
                     Text(
-                        if (search.isBlank()) "Пока никого нет.\nПригласи друга в Vibe Chat!"
-                        else "Никого не нашли.",
+                        if (search.isBlank()) {
+                            "Пока никого нет.\nПригласи друга в Vibe Chat!"
+                        } else {
+                            "Никого не нашли."
+                        },
                         color = Muted,
                         textAlign = TextAlign.Center
                     )
+
                     Spacer(Modifier.height(14.dp))
                     VibeButton("Мой профиль", onOpenProfile)
                 }
@@ -899,19 +1005,21 @@ fun VibeUsers(
 
             else -> LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 contentPadding = PaddingValues(bottom = 12.dp)
             ) {
                 items(visibleUsers, key = { it.id }) { person ->
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .background(Panel, RoundedCornerShape(16.dp))
-                            .clickable { onOpenChat(person.id, person.name) }
-                            .padding(horizontal = 11.dp, vertical = 9.dp),
+                            .background(Panel, RoundedCornerShape(15.dp))
+                            .clickable {
+                                onOpenChat(person.id, person.name)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        VibeAvatar(person.name, 42)
+                        VibeAvatar(person.name, 40)
                         Spacer(Modifier.width(10.dp))
 
                         Column(Modifier.weight(1f)) {
@@ -919,18 +1027,25 @@ fun VibeUsers(
                                 person.name,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 14.sp,
+                                maxLines = 1
                             )
+
                             Spacer(Modifier.height(3.dp))
+
                             Text(
-                                person.phone.ifBlank { "Пользователь Vibe Chat" },
+                                person.bio.ifBlank {
+                                    person.phone.ifBlank {
+                                        "Пользователь Vibe Chat"
+                                    }
+                                },
                                 color = Muted,
                                 fontSize = 11.sp,
                                 maxLines = 1
                             )
                         }
 
-                        Text("›", color = Cyan, fontSize = 25.sp)
+                        Text("›", color = Cyan, fontSize = 24.sp)
                     }
                 }
             }
@@ -946,7 +1061,10 @@ fun VibeChatsListScreen(
     onOpenUsers: () -> Unit
 ) {
     val db = remember { FirebaseFirestore.getInstance() }
-    var conversations by remember { mutableStateOf<List<ConversationPreview>>(emptyList()) }
+
+    var conversations by remember {
+        mutableStateOf<List<ConversationPreview>>(emptyList())
+    }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf("") }
 
@@ -967,19 +1085,24 @@ fun VibeChatsListScreen(
             error = "Войди в аккаунт, чтобы увидеть переписки."
         } else {
             loading = true
+
             chatsRegistration = db.collection("chats")
                 .whereArrayContains("participantIds", myId)
                 .addSnapshotListener { snapshot, exception ->
                     if (exception != null) {
                         loading = false
-                        error = "Не удалось загрузить чаты: ${exception.localizedMessage}"
+                        error =
+                            "Не удалось загрузить чаты: ${exception.localizedMessage}"
                     } else if (snapshot != null) {
                         loading = false
                         error = ""
+
                         val currentIds = snapshot.documents.map { it.id }.toSet()
 
-                        messageRegistrations.keys.filter { it !in currentIds }
-                            .toList().forEach { id ->
+                        messageRegistrations.keys
+                            .filter { it !in currentIds }
+                            .toList()
+                            .forEach { id ->
                                 messageRegistrations.remove(id)?.remove()
                                 previews.remove(id)
                                 userLoads.remove(id)
@@ -990,35 +1113,45 @@ fun VibeChatsListScreen(
                                 chatDoc.get("participantIds") as? List<*>
                                     ?: emptyList<Any>()
 
-                            val otherId = participants.filterIsInstance<String>()
-                                .firstOrNull { it.isNotBlank() && it != myId }
-                                ?: return@forEach
+                            val otherId = participants
+                                .filterIsInstance<String>()
+                                .firstOrNull {
+                                    it.isNotBlank() && it != myId
+                                } ?: return@forEach
 
                             val chatId = chatDoc.id
 
                             if (chatId !in previews) {
                                 previews[chatId] = ConversationPreview(
-                                    chatId,
-                                    otherId,
-                                    "Пользователь",
-                                    "Загрузка сообщений...",
-                                    chatDoc.getTimestamp("createdAt")
+                                    chatId = chatId,
+                                    otherUserId = otherId,
+                                    otherUserName = "Пользователь",
+                                    lastText = "Пока нет сообщений",
+                                    lastAt = chatDoc.getTimestamp("createdAt")
                                 )
                             }
 
                             if (userLoads.add(chatId)) {
-                                db.collection("users").document(otherId).get()
+                                db.collection("users")
+                                    .document(otherId)
+                                    .get()
                                     .addOnSuccessListener { userDoc ->
                                         val old = previews[chatId]
+
                                         if (old != null) {
-                                            val name = userDoc.getString("name")
+                                            val name = userDoc
+                                                .getString("name")
                                                 ?.takeIf { it.isNotBlank() }
                                                 ?: "Пользователь"
-                                            previews[chatId] = old.copy(otherUserName = name)
+
+                                            previews[chatId] =
+                                                old.copy(otherUserName = name)
                                             publish()
                                         }
                                     }
-                                    .addOnFailureListener { userLoads.remove(chatId) }
+                                    .addOnFailureListener {
+                                        userLoads.remove(chatId)
+                                    }
                             }
 
                             if (chatId !in messageRegistrations) {
@@ -1032,15 +1165,20 @@ fun VibeChatsListScreen(
                                     .limit(1)
                                     .addSnapshotListener { messages, messageError ->
                                         if (messageError != null) {
-                                            error = "Ошибка обновления сообщений: ${messageError.localizedMessage}"
+                                            error =
+                                                "Ошибка обновления сообщений: ${messageError.localizedMessage}"
                                         } else {
-                                            val latest = messages?.documents?.firstOrNull()
+                                            val latest =
+                                                messages?.documents?.firstOrNull()
                                             val old = previews[chatId]
+
                                             if (old != null) {
                                                 previews[chatId] = old.copy(
-                                                    lastText = latest?.getString("text")
+                                                    lastText = latest
+                                                        ?.getString("text")
                                                         ?: "Пока нет сообщений",
-                                                    lastAt = latest?.getTimestamp("createdAt")
+                                                    lastAt = latest
+                                                        ?.getTimestamp("createdAt")
                                                         ?: old.lastAt
                                                 )
                                                 publish()
@@ -1052,8 +1190,10 @@ fun VibeChatsListScreen(
                             }
                         }
 
-                        previews.keys.filter { it !in currentIds }
-                            .toList().forEach { previews.remove(it) }
+                        previews.keys
+                            .filter { it !in currentIds }
+                            .toList()
+                            .forEach { previews.remove(it) }
 
                         publish()
                     }
@@ -1067,7 +1207,11 @@ fun VibeChatsListScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 14.dp)
+    ) {
         VibeSectionTitle("Чаты", "Твои личные переписки")
 
         Row(
@@ -1076,10 +1220,12 @@ fun VibeChatsListScreen(
         ) {
             OutlinedButton(
                 onClick = onOpenGeneralChat,
-                modifier = Modifier.weight(1f).heightIn(min = 43.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Cyan),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 7.dp)
+                modifier = Modifier.weight(1f).heightIn(min = 42.dp),
+                shape = RoundedCornerShape(13.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Cyan
+                ),
+                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 6.dp)
             ) {
                 Text("🌐 Общий чат", fontSize = 11.sp)
             }
@@ -1091,7 +1237,7 @@ fun VibeChatsListScreen(
             )
         }
 
-        Spacer(Modifier.height(9.dp))
+        Spacer(Modifier.height(8.dp))
 
         if (error.isNotBlank()) {
             Text(error, color = Pink, fontSize = 11.sp)
@@ -1112,6 +1258,7 @@ fun VibeChatsListScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("💬", fontSize = 42.sp)
                     Spacer(Modifier.height(12.dp))
+
                     Text(
                         "Здесь будут твои переписки",
                         color = Color.White,
@@ -1119,13 +1266,16 @@ fun VibeChatsListScreen(
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
+
                     Spacer(Modifier.height(7.dp))
+
                     Text(
                         "Найди собеседника и напиши первое сообщение.",
                         color = Muted,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center
                     )
+
                     Spacer(Modifier.height(14.dp))
                     VibeButton("Найти собеседника", onOpenUsers)
                 }
@@ -1133,21 +1283,24 @@ fun VibeChatsListScreen(
 
             else -> LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
                 contentPadding = PaddingValues(bottom = 12.dp)
             ) {
                 items(conversations, key = { it.chatId }) { item ->
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .background(Panel, RoundedCornerShape(16.dp))
+                            .background(Panel, RoundedCornerShape(14.dp))
                             .clickable {
-                                onOpenChat(item.otherUserId, item.otherUserName)
+                                onOpenChat(
+                                    item.otherUserId,
+                                    item.otherUserName
+                                )
                             }
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        VibeAvatar(item.otherUserName, 43)
+                        VibeAvatar(item.otherUserName, 42)
                         Spacer(Modifier.width(10.dp))
 
                         Column(Modifier.weight(1f)) {
@@ -1158,7 +1311,9 @@ fun VibeChatsListScreen(
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1
                             )
+
                             Spacer(Modifier.height(3.dp))
+
                             Text(
                                 item.lastText,
                                 color = Muted,
@@ -1172,12 +1327,15 @@ fun VibeChatsListScreen(
                         Column(horizontalAlignment = Alignment.End) {
                             item.lastAt?.let { time ->
                                 Text(
-                                    SimpleDateFormat("HH:mm", Locale.getDefault())
-                                        .format(Date(time.toDate().time)),
+                                    SimpleDateFormat(
+                                        "HH:mm",
+                                        Locale.getDefault()
+                                    ).format(Date(time.toDate().time)),
                                     color = Cyan,
                                     fontSize = 10.sp
                                 )
                             }
+
                             Text("›", color = Purple, fontSize = 22.sp)
                         }
                     }
@@ -1202,19 +1360,22 @@ fun VibeGeneralChat(phone: String) {
         var registration: ListenerRegistration? = null
 
         if (user != null) {
-            registration = db.collection("chats").document("general")
-                .collection("messages").orderBy("createdAt")
+            registration = db.collection("chats")
+                .document("general")
+                .collection("messages")
+                .orderBy("createdAt")
                 .addSnapshotListener { snapshot, exception ->
                     if (exception != null) {
-                        error = "Не удалось загрузить сообщения: ${exception.localizedMessage}"
+                        error =
+                            "Не удалось загрузить сообщения: ${exception.localizedMessage}"
                     } else if (snapshot != null) {
                         messages = snapshot.documents.map { doc ->
                             ChatMessage(
-                                doc.id,
-                                doc.getString("authorId").orEmpty(),
-                                doc.getString("author").orEmpty(),
-                                doc.getString("text").orEmpty(),
-                                doc.getTimestamp("createdAt")
+                                id = doc.id,
+                                authorId = doc.getString("authorId").orEmpty(),
+                                author = doc.getString("author").orEmpty(),
+                                text = doc.getString("text").orEmpty(),
+                                time = doc.getTimestamp("createdAt")
                             )
                         }
                         error = ""
@@ -1225,10 +1386,16 @@ fun VibeGeneralChat(phone: String) {
         onDispose { registration?.remove() }
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp)
+    ) {
         VibeSectionTitle("Общий чат", "Общение со всеми")
 
-        if (error.isNotBlank()) Text(error, color = Pink, fontSize = 11.sp)
+        if (error.isNotBlank()) {
+            Text(error, color = Pink, fontSize = 11.sp)
+        }
 
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -1240,13 +1407,15 @@ fun VibeGeneralChat(phone: String) {
 
                 Column(
                     Modifier.fillMaxWidth(),
-                    horizontalAlignment = if (own) Alignment.End else Alignment.Start
+                    horizontalAlignment =
+                        if (own) Alignment.End else Alignment.Start
                 ) {
                     Text(
                         if (own) "Ты" else msg.author,
                         color = if (own) Cyan else Pink,
                         fontSize = 10.sp
                     )
+
                     Text(
                         msg.text,
                         color = Color.White,
@@ -1254,8 +1423,11 @@ fun VibeGeneralChat(phone: String) {
                         modifier = Modifier
                             .widthIn(max = 300.dp)
                             .background(
-                                if (own) Brush.linearGradient(listOf(Purple, Blue))
-                                else Brush.linearGradient(listOf(PanelLight, Panel)),
+                                if (own) {
+                                    Brush.linearGradient(listOf(Purple, Blue))
+                                } else {
+                                    Brush.linearGradient(listOf(PanelLight, Panel))
+                                },
                                 RoundedCornerShape(16.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 9.dp)
@@ -1270,10 +1442,12 @@ fun VibeGeneralChat(phone: String) {
         ) {
             OutlinedTextField(
                 value = messageText,
-                onValueChange = { if (it.length <= 1000) messageText = it },
+                onValueChange = {
+                    if (it.length <= 1000) messageText = it
+                },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Напиши сообщение...") },
-                shape = RoundedCornerShape(15.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = VibeFieldColors
             )
 
@@ -1284,15 +1458,20 @@ fun VibeGeneralChat(phone: String) {
                 onClick = {
                     val text = messageText.trim()
                     val current = auth.currentUser
+
                     if (text.isNotBlank() && current != null && !sending) {
                         sending = true
-                        db.collection("chats").document("general")
+
+                        db.collection("chats")
+                            .document("general")
                             .collection("messages")
                             .add(
                                 hashMapOf(
                                     "text" to text,
                                     "authorId" to current.uid,
-                                    "author" to (current.phoneNumber ?: "Пользователь"),
+                                    "author" to (
+                                        current.phoneNumber ?: "Пользователь"
+                                    ),
                                     "createdAt" to FieldValue.serverTimestamp()
                                 )
                             )
@@ -1303,7 +1482,8 @@ fun VibeGeneralChat(phone: String) {
                             }
                             .addOnFailureListener { e ->
                                 sending = false
-                                error = "Не удалось отправить: ${e.localizedMessage}"
+                                error =
+                                    "Не удалось отправить: ${e.localizedMessage}"
                             }
                     }
                 },
@@ -1313,7 +1493,10 @@ fun VibeGeneralChat(phone: String) {
     }
 }
 
-private data class AlexMessage(val fromUser: Boolean, val text: String)
+private data class AlexMessage(
+    val fromUser: Boolean,
+    val text: String
+)
 
 @Composable
 fun AlexAiScreen() {
@@ -1332,27 +1515,42 @@ fun AlexAiScreen() {
             listOf(
                 AlexMessage(
                     false,
-                    "Привет! Я Алекс AI ✨\n\nЯ твой помощник внутри Vibe Chat. Напиши вопрос — постараюсь помочь."
+                    "Привет! Я Алекс AI ✨\n\n" +
+                        "Я твой помощник внутри Vibe Chat. " +
+                        "Напиши вопрос — постараюсь помочь."
                 )
             )
         )
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 5.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp, vertical = 5.dp)
+    ) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.linearGradient(listOf(Color(0xFF30205A), Color(0xFF192D55))),
-                    RoundedCornerShape(20.dp)
+                    Brush.linearGradient(
+                        listOf(Color(0xFF30205A), Color(0xFF192D55))
+                    ),
+                    RoundedCornerShape(18.dp)
                 )
-                .padding(13.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            VibeAvatar("A", 45)
+            VibeAvatar("A", 44)
             Spacer(Modifier.width(10.dp))
+
             Column(Modifier.weight(1f)) {
-                Text("Алекс", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                Text(
+                    "Алекс",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+
                 Text(
                     if (isLoading) "Думаю..." else "Твой AI-помощник",
                     color = Cyan,
@@ -1362,14 +1560,16 @@ fun AlexAiScreen() {
         }
 
         LazyColumn(
-            Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             items(messages) { message ->
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start
+                    horizontalArrangement =
+                        if (message.fromUser) Arrangement.End
+                        else Arrangement.Start
                 ) {
                     Text(
                         message.text,
@@ -1378,17 +1578,25 @@ fun AlexAiScreen() {
                         modifier = Modifier
                             .widthIn(max = 310.dp)
                             .background(
-                                if (message.fromUser) Brush.linearGradient(listOf(Purple, Blue))
-                                else Brush.linearGradient(listOf(PanelLight, Panel)),
+                                if (message.fromUser) {
+                                    Brush.linearGradient(listOf(Purple, Blue))
+                                } else {
+                                    Brush.linearGradient(listOf(PanelLight, Panel))
+                                },
                                 RoundedCornerShape(17.dp)
                             )
                             .padding(horizontal = 13.dp, vertical = 10.dp)
                     )
                 }
             }
+
             if (isLoading) {
                 item {
-                    CircularProgressIndicator(Modifier.size(22.dp), color = Cyan, strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        Modifier.size(22.dp),
+                        color = Cyan,
+                        strokeWidth = 2.dp
+                    )
                 }
             }
         }
@@ -1399,7 +1607,9 @@ fun AlexAiScreen() {
                 color = Pink,
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 5.dp)
             )
         }
 
@@ -1409,7 +1619,7 @@ fun AlexAiScreen() {
                 onValueChange = { input = it.take(1000) },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Спроси Алекса...") },
-                shape = RoundedCornerShape(15.dp),
+                shape = RoundedCornerShape(14.dp),
                 maxLines = 4,
                 colors = VibeFieldColors
             )
@@ -1421,6 +1631,7 @@ fun AlexAiScreen() {
                 enabled = input.isNotBlank() && !isLoading,
                 onClick = {
                     val question = input.trim()
+
                     if (question.isNotBlank() && !isLoading) {
                         messages = messages + AlexMessage(true, question)
                         input = ""
@@ -1431,20 +1642,23 @@ fun AlexAiScreen() {
                             try {
                                 val prompt =
                                     "Ты Алекс AI — дружелюбный помощник внутри Vibe Chat. " +
-                                    "Отвечай по-русски, понятно и полезно. " +
-                                    "Помогай писать промпты для фото и видео.\n\n" +
-                                    "Сообщение пользователя: $question"
+                                        "Отвечай по-русски, понятно и полезно. " +
+                                        "Помогай писать промпты для фото и видео.\n\n" +
+                                        "Сообщение пользователя: $question"
 
                                 val response = model.generateContent(prompt)
+
                                 val answer = response.text
                                     ?.takeIf { it.isNotBlank() }
                                     ?: "Gemini не вернул текст. Попробуй ещё раз."
 
                                 messages = messages + AlexMessage(false, answer)
                             } catch (e: Exception) {
-                                error = "Не удалось получить ответ: ${
-                                    e.localizedMessage ?: "проверь Firebase AI Logic"
-                                }"
+                                error =
+                                    "Не удалось получить ответ: ${
+                                        e.localizedMessage
+                                            ?: "проверь Firebase AI Logic"
+                                    }"
                             } finally {
                                 isLoading = false
                             }
