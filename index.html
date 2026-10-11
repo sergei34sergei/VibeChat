@@ -2,86 +2,304 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#101020">
-  <title>Vibe Chat — Алекс</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111126">
+  <title>Vibe Chat</title>
 
   <style>
-    * {
-      box-sizing: border-box;
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: #101020;
+      --panel: #19192e;
+      --panel2: #22223b;
+      --accent: #a78bfa;
+      --text: #f6f5ff;
+      --muted: #aaa9c5;
+      --border: #ffffff14;
     }
 
     body {
       margin: 0;
       min-height: 100vh;
-      color: #ffffff;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #101020, #24204b, #101020);
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at top left, #30215c 0, transparent 45%),
+        var(--bg);
+      font-family: system-ui, Arial, sans-serif;
     }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
 
     header {
-      padding: 22px 18px;
-      border-bottom: 1px solid #ffffff20;
-      text-align: center;
+      height: 68px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: #101020dd;
     }
 
-    .logo {
-      font-size: 28px;
-      font-weight: bold;
-      letter-spacing: 1px;
+    .logo { font-size: 23px; font-weight: 800; }
+    .logo span { color: var(--accent); }
+
+    .online {
+      color: #86efac;
+      font-size: 12px;
     }
 
-    .logo span {
-      color: #a78bfa;
+    .layout {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 14px;
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 16px;
     }
 
-    main {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 35px 20px;
-      text-align: center;
+    .sidebar, .content {
+      background: #19192edb;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      overflow: hidden;
+    }
+
+    .sidebar { padding: 16px 10px; }
+
+    .section-label {
+      margin: 8px 12px 14px;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .nav-button {
+      display: block;
+      width: 100%;
+      padding: 13px 12px;
+      margin-bottom: 5px;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+    }
+
+    .nav-button.active, .nav-button:hover {
+      background: #a78bfa20;
+      color: white;
+    }
+
+    .content { min-height: 590px; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-header {
+      padding: 22px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 { margin: 0 0 7px; font-size: 24px; }
+    h2 { margin: 0; font-size: 17px; }
+    p { color: var(--muted); line-height: 1.6; }
+
+    .chat-layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      min-height: 500px;
+    }
+
+    .chat-list {
+      padding: 10px;
+      border-right: 1px solid var(--border);
+    }
+
+    .person {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 8px;
+      margin-bottom: 5px;
+      color: var(--text);
+      text-align: left;
+      background: transparent;
+      border: 0;
+      border-radius: 14px;
+    }
+
+    .person.active, .person:hover {
+      background: var(--panel2);
     }
 
     .avatar {
-      width: 112px;
-      height: 112px;
-      margin: 10px auto 22px;
+      flex: 0 0 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #8b5cf6, #ec4899);
+      font-size: 21px;
+    }
+
+    .person-name { font-size: 14px; font-weight: 700; }
+    .preview { margin-top: 4px; font-size: 12px; color: var(--muted); }
+
+    .conversation {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .conversation-header {
+      padding: 15px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .messages {
+      flex: 1;
+      min-height: 260px;
+      padding: 18px 12px;
+    }
+
+    .bubble {
+      max-width: 88%;
+      width: fit-content;
+      margin: 10px 0;
+      padding: 11px 14px;
+      border-radius: 16px;
+      background: #292942;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+
+    .bubble.mine {
+      margin-left: auto;
+      background: #6741bb;
+    }
+
+    .composer {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .composer input, .search {
+      width: 100%;
+      min-width: 0;
+      padding: 12px 14px;
+      color: white;
+      background: #101020;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      outline: none;
+    }
+
+    .primary {
+      padding: 11px 15px;
+      color: white;
+      font-weight: 700;
+      background: linear-gradient(135deg, #8b5cf6, #6d4aff);
+      border: 0;
+      border-radius: 13px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .card {
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: #22223b;
+    }
+
+    .big-avatar {
+      width: 92px;
+      height: 92px;
+      margin: 25px auto 15px;
+      display: grid;
+      place-items: center;
       border-radius: 50%;
-      font-size: 52px;
+      font-size: 42px;
       background: linear-gradient(135deg, #8b5cf6, #ec4899);
-      box-shadow: 0 0 45px #8b5cf655;
     }
 
-    h1 {
-      font-size: 32px;
-      margin-bottom: 12px;
-    }
+    .center { padding: 22px; text-align: center; }
 
-    p {
-      color: #d1d1e8;
+    .notice {
+      margin: 18px;
+      padding: 14px;
+      border: 1px solid #a78bfa40;
+      border-radius: 14px;
+      color: #ddd6fe;
+      font-size: 13px;
       line-height: 1.6;
     }
 
-    .panel {
-      margin-top: 28px;
-      padding: 24px;
-      border: 1px solid #ffffff20;
-      border-radius: 22px;
-      background: #ffffff0c;
-    }
+    .mobile-nav { display: none; }
 
-    .status {
-      color: #86efac;
-      font-size: 14px;
-    }
+    @media (max-width: 650px) {
+      .layout {
+        display: block;
+        margin: 12px auto 80px;
+        padding: 0 8px;
+      }
 
-    .hint {
-      margin-top: 24px;
-      font-size: 13px;
-      color: #aaaac7;
+      .sidebar { display: none; }
+      .content { min-height: 70vh; border-radius: 18px; }
+
+      .chat-layout { grid-template-columns: 1fr; }
+      .chat-list {
+        display: flex;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .person {
+        flex: 0 0 125px;
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .preview { max-width: 110px; overflow: hidden; }
+      .page-header { padding: 18px; }
+      .messages { min-height: 220px; }
+
+      .mobile-nav {
+        position: fixed;
+        z-index: 10;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-around;
+        padding: 10px 4px calc(10px + env(safe-area-inset-bottom));
+        background: #15152af5;
+        border-top: 1px solid var(--border);
+      }
+
+      .mobile-nav button {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .mobile-nav button.active { color: var(--accent); }
     }
   </style>
 </head>
@@ -89,34 +307,195 @@
 <body>
   <header>
     <div class="logo">Vibe <span>Chat</span></div>
+    <div class="online">● На связи</div>
   </header>
 
-  <main>
-    <div class="avatar">🤖</div>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="section-label">Главное меню</div>
+      <button class="nav-button active" data-page="chats">💬 Чаты</button>
+      <button class="nav-button" data-page="contacts">👥 Контакты</button>
+      <button class="nav-button" data-page="alex">🤖 Алекс AI</button>
+      <button class="nav-button" data-page="profile">👤 Мой профиль</button>
+      <div class="notice">
+        Vibe Chat<br>
+        Общение без границ ❤️
+      </div>
+    </aside>
 
-    <h1>Привет! Я Алекс</h1>
+    <main class="content">
+      <section class="page active" id="chats">
+        <div class="page-header">
+          <h1>Сообщения</h1>
+          <p>Твои разговоры в одном месте.</p>
+        </div>
 
-    <p>
-      Твой виртуальный помощник в мире Vibe Chat.
-      Нажми на моего аватара, чтобы начать знакомство.
-    </p>
+        <div class="chat-layout">
+          <div class="chat-list">
+            <button class="person active" data-chat="demo">
+              <div class="avatar">👋</div>
+              <div>
+                <div class="person-name">Добро пожаловать</div>
+                <div class="preview">Начни знакомство</div>
+              </div>
+            </button>
 
-    <div class="panel">
-      <div class="status">● Страница Vibe Chat загружена</div>
-      <p>
-        Здесь будет жить Алекс — говорить с тобой
-        и помогать в общении.
-      </p>
-      <p>
-        Если окно аватара не появилось, проверь настройки
-        встраивания D-ID и разрешённый домен.
-      </p>
-    </div>
+            <button class="person" data-chat="alex">
+              <div class="avatar">🤖</div>
+              <div>
+                <div class="person-name">Алекс AI</div>
+                <div class="preview">Голосовой помощник</div>
+              </div>
+            </button>
+          </div>
 
-    <div class="hint">
-      Vibe Chat · Развиваемся вместе ❤️
-    </div>
-  </main>
+          <div class="conversation">
+            <div class="conversation-header">
+              <div class="avatar" id="chatAvatar">👋</div>
+              <div>
+                <h2 id="chatTitle">Добро пожаловать</h2>
+                <div class="online" id="chatStatus">● Vibe Chat</div>
+              </div>
+            </div>
+
+            <div class="messages" id="messages">
+              <div class="bubble">Привет! 👋 Добро пожаловать в Vibe Chat.</div>
+              <div class="bubble">Это первый шаг к нашему собственному мессенджеру.</div>
+            </div>
+
+            <form class="composer" id="messageForm">
+              <input id="messageInput" placeholder="Напиши сообщение..." autocomplete="off">
+              <button class="primary" type="submit">➤</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="contacts">
+        <div class="page-header">
+          <h1>Контакты</h1>
+          <p>Здесь будут люди, с которыми ты общаешься.</p>
+          <input class="search" id="contactSearch" placeholder="Поиск контактов...">
+        </div>
+        <div class="cards" id="contactCards">
+          <div class="card">
+            <div class="avatar">🤖</div>
+            <h2>Алекс AI</h2>
+            <p>Голосовой помощник</p>
+            <button class="primary" data-go="alex">Открыть Алекса</button>
+          </div>
+          <div class="card">
+            <div class="avatar">👋</div>
+            <h2>Vibe Chat</h2>
+            <p>Твой новый мессенджер</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="alex">
+        <div class="center">
+          <div class="big-avatar">🤖</div>
+          <h1>Алекс AI</h1>
+          <div class="online">● Голосовой помощник D-ID</div>
+          <p>Нажми на окно Алекса, чтобы начать разговор голосом.</p>
+          <p>Если окно свёрнуто, найди виджет в нижней или правой части экрана.</p>
+          <div class="notice">
+            Алекс работает через D-ID. Веб-страница не получает автоматически
+            историю его разговоров или данные твоего Android-приложения.
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="profile">
+        <div class="center">
+          <div class="big-avatar">👤</div>
+          <h1>Мой профиль</h1>
+          <p>Добро пожаловать в Vibe Chat!</p>
+          <div class="card">
+            <p>Имя пользователя</p>
+            <input class="search" value="Пользователь Vibe Chat" id="profileName">
+            <br><br>
+            <button class="primary" id="saveProfile">Сохранить имя</button>
+            <p id="profileResult"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="mobile-nav">
+    <button class="active" data-page="chats">💬<br>Чаты</button>
+    <button data-page="contacts">👥<br>Контакты</button>
+    <button data-page="alex">🤖<br>Алекс</button>
+    <button data-page="profile">👤<br>Профиль</button>
+  </nav>
+
+  <script>
+    const pages = document.querySelectorAll(".page");
+    const navButtons = document.querySelectorAll("[data-page]");
+
+    function openPage(id) {
+      pages.forEach(page => page.classList.toggle("active", page.id === id));
+      navButtons.forEach(button =>
+        button.classList.toggle("active", button.dataset.page === id)
+      );
+    }
+
+    navButtons.forEach(button => {
+      button.addEventListener("click", () => openPage(button.dataset.page));
+    });
+
+    document.querySelectorAll("[data-go]").forEach(button => {
+      button.addEventListener("click", () => openPage(button.dataset.go));
+    });
+
+    document.querySelectorAll("[data-chat]").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-chat]").forEach(item =>
+          item.classList.toggle("active", item === button)
+        );
+
+        const isAlex = button.dataset.chat === "alex";
+        document.getElementById("chatTitle").textContent =
+          isAlex ? "Алекс AI" : "Добро пожаловать";
+        document.getElementById("chatAvatar").textContent =
+          isAlex ? "🤖" : "👋";
+        document.getElementById("chatStatus").textContent =
+          isAlex ? "● Голосовой помощник" : "● Vibe Chat";
+
+        document.getElementById("messages").innerHTML = isAlex
+          ? '<div class="bubble">Привет! Я Алекс. Чтобы поговорить со мной голосом, открой мой виджет D-ID на странице.</div>'
+          : '<div class="bubble">Привет! 👋 Добро пожаловать в Vibe Chat.</div><div class="bubble">Это демонстрационный чат.</div>';
+      });
+    });
+
+    document.getElementById("messageForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble mine";
+      bubble.textContent = text;
+      document.getElementById("messages").appendChild(bubble);
+      input.value = "";
+      bubble.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+
+    document.getElementById("contactSearch").addEventListener("input", event => {
+      const query = event.target.value.toLowerCase();
+      document.querySelectorAll("#contactCards .card").forEach(card => {
+        card.style.display = card.textContent.toLowerCase().includes(query)
+          ? "" : "none";
+      });
+    });
+
+    document.getElementById("saveProfile").addEventListener("click", () => {
+      document.getElementById("profileResult").textContent =
+        "Имя изменено на этой странице. Для постоянного профиля потребуется аккаунт.";
+    });
+  </script>
 
   <script
     type="module"
