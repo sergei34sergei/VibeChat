@@ -1,13 +1,17 @@
+
 package com.vibe.chat
 
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,6 +63,7 @@ private val AlexPanel = Color(0xE8111A30)
 fun AlexVoiceScreen() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
 
     var draft by remember { mutableStateOf("") }
     var answer by remember {
@@ -77,30 +82,67 @@ fun AlexVoiceScreen() {
 
     val tts = remember {
         TextToSpeech(context) { status ->
-            ttsReady = status == TextToSpeech.SUCCESS
-            if (status != TextToSpeech.SUCCESS) {
-                voiceError = "Русская озвучка пока недоступна."
+            mainHandler.post {
+                if (status == TextToSpeech.SUCCESS) {
+                    ttsReady = true
+                } else {
+                    ttsReady = false
+                    voiceError =
+                        "Не удалось запустить голосовой движок Android."
+                }
             }
         }
     }
 
     LaunchedEffect(ttsReady) {
         if (ttsReady) {
-            val result = tts.setLanguage(Locale("ru", "RU"))
-            tts.setPitch(0.90f)
-            tts.setSpeechRate(0.92f)
+            try {
+                val result = tts.setLanguage(Locale("ru", "RU"))
 
-            if (
-                result == TextToSpeech.LANG_MISSING_DATA ||
-                result == TextToSpeech.LANG_NOT_SUPPORTED
-            ) {
-                voiceError =
-                    "Установи поддержку русского голоса в настройках телефона."
+                if (
+                    result == TextToSpeech.LANG_MISSING_DATA ||
+                    result == TextToSpeech.LANG_NOT_SUPPORTED
+                ) {
+                    ttsReady = false
+                    voiceError =
+                        "Русский голос не установлен. " +
+                            "Проверь настройки синтеза речи Android."
+                } else {
+                    tts.setPitch(0.88f)
+                    tts.setSpeechRate(0.90f)
+                    voiceError = ""
+                }
+            } catch (_: Exception) {
+                ttsReady = false
+                voiceError = "Не удалось настроить русский голос."
             }
         }
     }
 
     DisposableEffect(tts) {
+        tts.setOnUtteranceProgressListener(
+            object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {
+                    mainHandler.post {
+                        speaking = true
+                    }
+                }
+
+                override fun onDone(utteranceId: String?) {
+                    mainHandler.post {
+                        speaking = false
+                    }
+                }
+
+                override fun onError(utteranceId: String?) {
+                    mainHandler.post {
+                        speaking = false
+                        voiceError = "Не удалось озвучить ответ."
+                    }
+                }
+            }
+        )
+
         onDispose {
             try {
                 tts.stop()
@@ -131,6 +173,7 @@ fun AlexVoiceScreen() {
                 }
 
                 override fun onRmsChanged(rmsdB: Float) {}
+
                 override fun onBufferReceived(buffer: ByteArray?) {}
 
                 override fun onEndOfSpeech() {
@@ -143,21 +186,29 @@ fun AlexVoiceScreen() {
                     voiceError = when (error) {
                         SpeechRecognizer.ERROR_AUDIO ->
                             "Проблема с микрофоном."
+
                         SpeechRecognizer.ERROR_CLIENT ->
                             "Сбой голосового сервиса. Попробуй ещё раз."
+
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
                             "Разреши доступ к микрофону."
+
                         SpeechRecognizer.ERROR_NETWORK,
                         SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
                             "Проверь интернет."
+
                         SpeechRecognizer.ERROR_NO_MATCH ->
                             "Я не расслышал слова. Попробуй ещё раз."
+
                         SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
                             "Микрофон занят. Подожди немного."
+
                         SpeechRecognizer.ERROR_SERVER ->
                             "Сервис распознавания временно недоступен."
+
                         SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
                             "Я не услышал речь. Нажми микрофон и говори."
+
                         else ->
                             "Не удалось распознать речь."
                     }
@@ -177,12 +228,17 @@ fun AlexVoiceScreen() {
                         draft = words
                         voiceError = ""
                     } else {
-                        voiceError = "Речь не распознана. Попробуй ещё раз."
+                        voiceError =
+                            "Речь не распознана. Попробуй ещё раз."
                     }
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
+
+                override fun onEvent(
+                    eventType: Int,
+                    params: Bundle?
+                ) {}
             }
         )
 
@@ -197,7 +253,8 @@ fun AlexVoiceScreen() {
 
     fun startRecognition() {
         if (recognizer == null) {
-            voiceError = "На телефоне не найден сервис распознавания речи."
+            voiceError =
+                "На телефоне не найден сервис распознавания речи."
             Toast.makeText(
                 context,
                 voiceError,
@@ -216,10 +273,22 @@ fun AlexVoiceScreen() {
                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
                 )
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ru-RU")
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE,
+                    "ru-RU"
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,
+                    "ru-RU"
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+                    false
+                )
+                putExtra(
+                    RecognizerIntent.EXTRA_MAX_RESULTS,
+                    3
+                )
                 putExtra(
                     RecognizerIntent.EXTRA_PROMPT,
                     "Говори, Алекс слушает"
@@ -230,11 +299,42 @@ fun AlexVoiceScreen() {
         } catch (_: Exception) {
             listening = false
             voiceError = "Не получилось включить микрофон."
+
             Toast.makeText(
                 context,
                 voiceError,
                 Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    fun speakAnswer() {
+        if (!ttsReady) {
+            voiceError =
+                "Голос пока не готов. Проверь настройки синтеза речи."
+            return
+        }
+
+        try {
+            speaking = true
+
+            val result = tts.speak(
+                answer,
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "alex_reply"
+            )
+
+            if (result == TextToSpeech.ERROR) {
+                speaking = false
+                voiceError =
+                    "Голосовой движок не смог озвучить текст."
+            } else {
+                voiceError = ""
+            }
+        } catch (_: Exception) {
+            speaking = false
+            voiceError = "Ошибка запуска озвучивания."
         }
     }
 
@@ -245,11 +345,14 @@ fun AlexVoiceScreen() {
             startRecognition()
         } else {
             listening = false
-            voiceError = "Разреши доступ к микрофону в настройках."
+            voiceError =
+                "Разреши доступ к микрофону в настройках."
         }
     }
 
-    val animation = rememberInfiniteTransition(label = "alex-animation")
+    val animation = rememberInfiniteTransition(
+        label = "alex-animation"
+    )
 
     val glow by animation.animateFloat(
         initialValue = 0.94f,
@@ -413,7 +516,6 @@ fun AlexVoiceScreen() {
                     )
                 }
 
-                // Настоящая аватарка Алекса из res/drawable.
                 Image(
                     painter = painterResource(
                         id = R.drawable.alex_avatar
@@ -484,7 +586,11 @@ fun AlexVoiceScreen() {
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .border(1.dp, AlexCyan, CircleShape)
+                            .border(
+                                1.dp,
+                                AlexCyan,
+                                CircleShape
+                            )
                     )
 
                     Text(
@@ -535,6 +641,7 @@ fun AlexVoiceScreen() {
 
                 if (voiceError.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
+
                     Text(
                         voiceError,
                         color = Color(0xFFFFB86C),
@@ -596,6 +703,7 @@ fun AlexVoiceScreen() {
                         } catch (_: Exception) {
                             recognizer?.cancel()
                         }
+
                         listening = false
                     } else if (
                         ContextCompat.checkSelfPermission(
@@ -650,19 +758,21 @@ fun AlexVoiceScreen() {
                                     ?: "Не получилось получить текстовый ответ."
 
                                 if (ttsReady) {
-                                    speaking = true
-                                    tts.speak(
-                                        answer,
-                                        TextToSpeech.QUEUE_FLUSH,
-                                        null,
-                                        "alex_reply"
-                                    )
+                                    speakAnswer()
+                                } else {
+                                    speaking = false
+
+                                    if (voiceError.isBlank()) {
+                                        voiceError =
+                                            "Ответ получен, но голос не готов. " +
+                                                "Проверь русский голос в Android."
+                                    }
                                 }
                             } catch (e: Exception) {
                                 answer =
                                     "Не удалось получить ответ: " +
-                                    "${e.localizedMessage ?: "ошибка подключения к AI"}. " +
-                                    "Проверь интернет, Firebase AI Logic и App Check."
+                                        "${e.localizedMessage ?: "ошибка подключения к AI"}. " +
+                                        "Проверь интернет, Firebase AI Logic и App Check."
 
                                 speaking = false
 
