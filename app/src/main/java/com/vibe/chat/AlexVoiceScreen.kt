@@ -1,7 +1,9 @@
-
 package com.vibe.chat
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -73,12 +75,69 @@ fun AlexVoiceScreen() {
         )
     }
 
+    // Полная техническая ошибка — её можно скопировать.
+    var lastError by remember { mutableStateOf("") }
+
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var speaking by remember { mutableStateOf(false) }
     var ttsReady by remember { mutableStateOf(false) }
     var fullScreenFace by remember { mutableStateOf(true) }
     var voiceError by remember { mutableStateOf("") }
+
+    fun copyText(label: String, text: String) {
+        if (text.isBlank()) {
+            Toast.makeText(
+                context,
+                "Пока нечего копировать",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        try {
+            val clipboard = context.getSystemService(
+                Context.CLIPBOARD_SERVICE
+            ) as ClipboardManager
+
+            clipboard.setPrimaryClip(
+                ClipData.newPlainText(label, text)
+            )
+
+            Toast.makeText(
+                context,
+                "Скопировано! Теперь вставь текст сюда в чат.",
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (e: Exception) {
+            Toast.makeText(
+                context,
+                "Не удалось скопировать: ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    fun formatError(e: Exception): String {
+        return buildString {
+            appendLine("Ошибка Vibe Chat / Gemini / Firebase")
+            appendLine("Тип: ${e.javaClass.name}")
+            appendLine("Сообщение: ${e.message ?: "не указано"}")
+
+            var cause = e.cause
+            var count = 0
+
+            while (cause != null && count < 5) {
+                appendLine(
+                    "Причина ${count + 1}: " +
+                        "${cause.javaClass.name}: " +
+                        "${cause.message ?: "без подробностей"}"
+                )
+                cause = cause.cause
+                count++
+            }
+        }.trim()
+    }
 
     val tts = remember {
         TextToSpeech(context) { status ->
@@ -210,7 +269,7 @@ fun AlexVoiceScreen() {
                             "Я не услышал речь. Нажми микрофон и говори."
 
                         else ->
-                            "Не удалось распознать речь."
+                            "Не удалось распознать речь. Код: $error"
                     }
                 }
 
@@ -255,6 +314,7 @@ fun AlexVoiceScreen() {
         if (recognizer == null) {
             voiceError =
                 "На телефоне не найден сервис распознавания речи."
+
             Toast.makeText(
                 context,
                 voiceError,
@@ -308,18 +368,17 @@ fun AlexVoiceScreen() {
         }
     }
 
-    fun speakAnswer() {
+    fun speakText(text: String) {
         if (!ttsReady) {
+            speaking = false
             voiceError =
                 "Голос пока не готов. Проверь настройки синтеза речи."
             return
         }
 
         try {
-            speaking = true
-
             val result = tts.speak(
-                answer,
+                text,
                 TextToSpeech.QUEUE_FLUSH,
                 null,
                 "alex_reply"
@@ -639,178 +698,4 @@ fun AlexVoiceScreen() {
                     lineHeight = 21.sp
                 )
 
-                if (voiceError.isNotBlank()) {
-                    Spacer(Modifier.height(8.dp))
-
-                    Text(
-                        voiceError,
-                        color = Color(0xFFFFB86C),
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp
-                    )
-                }
-            }
-
-            if (busy) {
-                Spacer(Modifier.height(8.dp))
-
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = AlexCyan,
-                    trackColor = Color(0xFF202744)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        OutlinedTextField(
-            value = draft,
-            onValueChange = { draft = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = {
-                Text(
-                    "Скажи или напиши Алексу…",
-                    color = Color(0xFF8792B7)
-                )
-            },
-            shape = RoundedCornerShape(18.dp),
-            maxLines = 3,
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Sentences
-            ),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = AlexCyan,
-                unfocusedBorderColor = Color(0xFF303957),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                cursorColor = AlexCyan
-            )
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedButton(
-                onClick = {
-                    if (listening) {
-                        try {
-                            recognizer?.stopListening()
-                        } catch (_: Exception) {
-                            recognizer?.cancel()
-                        }
-
-                        listening = false
-                    } else if (
-                        ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.RECORD_AUDIO
-                        ) == PackageManager.PERMISSION_GRANTED
-                    ) {
-                        startRecognition()
-                    } else {
-                        micPermission.launch(
-                            Manifest.permission.RECORD_AUDIO
-                        )
-                    }
-                },
-                modifier = Modifier.weight(0.9f),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = AlexCyan
-                )
-            ) {
-                Text(
-                    if (listening) "■ Стоп" else "🎙 Микрофон",
-                    fontSize = 12.sp
-                )
-            }
-
-            Button(
-                onClick = {
-                    val question = draft.trim()
-
-                    if (question.isNotBlank() && !busy) {
-                        draft = ""
-                        busy = true
-                        voiceError = ""
-                        speaking = false
-
-                        scope.launch {
-                            try {
-                                val model = Firebase.ai(
-                                    backend = GenerativeBackend.googleAI()
-                                ).generativeModel("gemini-3.8-flash")
-
-                                val response = model.generateContent(
-                                    "Ты Алекс — спокойный, доброжелательный " +
-                                        "голосовой помощник приложения Vibe Chat. " +
-                                        "Отвечай на русском естественно, понятно " +
-                                        "и не слишком длинно. " +
-                                        "Пользователь говорит: $question"
-                                )
-
-                                answer = response.text
-                                    ?: "Не получилось получить текстовый ответ."
-
-                                if (ttsReady) {
-                                    speakAnswer()
-                                } else {
-                                    speaking = false
-
-                                    if (voiceError.isBlank()) {
-                                        voiceError =
-                                            "Ответ получен, но голос не готов. " +
-                                                "Проверь русский голос в Android."
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                answer =
-                                    "Не удалось получить ответ: " +
-                                        "${e.localizedMessage ?: "ошибка подключения к AI"}. " +
-                                        "Проверь интернет, Firebase AI Logic и App Check."
-
-                                speaking = false
-
-                                Toast.makeText(
-                                    context,
-                                    "Ошибка связи с Алексом",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } finally {
-                                busy = false
-                            }
-                        }
-                    }
-                },
-                modifier = Modifier.weight(1.1f),
-                enabled = !busy && draft.isNotBlank(),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF7049D8),
-                    disabledContainerColor = Color(0xFF39334D)
-                )
-            ) {
-                Text(
-                    if (busy) "Думаю…" else "Спросить Алекса",
-                    fontSize = 12.sp
-                )
-            }
-        }
-
-        Spacer(Modifier.height(5.dp))
-
-        Text(
-            "ALEX AI • VIBE CHAT",
-            color = Color(0xFF63759B),
-            fontSize = 9.sp,
-            letterSpacing = 1.8.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
+                if (
