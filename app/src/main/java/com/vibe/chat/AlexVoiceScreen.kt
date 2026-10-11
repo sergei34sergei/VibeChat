@@ -2,7 +2,6 @@ package com.vibe.chat
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -46,39 +45,30 @@ private const val ALEX_PAGE =
     "https://sergei34sergei.github.io/VibeChat/alex.html"
 
 @Composable
-fun AlexVoiceScreen(
-    onBack: () -> Unit = {}
-) {
+fun AlexVoiceScreen(onBack: () -> Unit = {}) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf(false) }
-    var pendingRequest by remember {
-        mutableStateOf<PermissionRequest?>(null)
-    }
+    var pendingRequest by remember { mutableStateOf<PermissionRequest?>(null) }
 
     val microphonePermission =
         rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
+            contract = ActivityResultContracts.RequestPermission()
         ) { granted ->
             val request = pendingRequest
             pendingRequest = null
 
-            if (granted && request != null) {
-                val host = request.origin.host.orEmpty()
-                val trusted = host == "d-id.com" ||
-                    host.endsWith(".d-id.com")
+            if (request == null) return@rememberLauncherForActivityResult
 
-                val audio = request.resources.filter {
-                    it == PermissionRequest.RESOURCE_AUDIO_CAPTURE
-                }.toTypedArray()
-
-                if (trusted && audio.isNotEmpty()) {
-                    request.grant(audio)
-                } else {
-                    request.deny()
-                }
+            if (granted && request.resources.contains(
+                    PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                ) && isTrustedDidHost(request.origin.host.orEmpty())
+            ) {
+                request.grant(
+                    arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                )
             } else {
-                request?.deny()
+                request.deny()
             }
         }
 
@@ -94,6 +84,7 @@ fun AlexVoiceScreen(
             webView?.apply {
                 stopLoading()
                 webChromeClient = null
+                webViewClient = WebViewClient()
                 loadUrl("about:blank")
                 removeAllViews()
                 destroy()
@@ -157,11 +148,10 @@ fun AlexVoiceScreen(
                         ): Boolean {
                             val uri = request?.url ?: return true
 
-                            // Не разрешаем открывать произвольные
-                            // сайты внутри экрана Алекса.
+                            // Разрешаем основную страницу Vibe Chat.
+                            // Внешние переходы не открываем внутри приложения.
                             return uri.scheme != "https" ||
-                                uri.host !=
-                                "sergei34sergei.github.io"
+                                uri.host != "sergei34sergei.github.io"
                         }
                     }
 
@@ -170,17 +160,12 @@ fun AlexVoiceScreen(
                             request: PermissionRequest
                         ) {
                             post {
-                                val host =
+                                val trusted = isTrustedDidHost(
                                     request.origin.host.orEmpty()
-
-                                val trusted = host == "d-id.com" ||
-                                    host.endsWith(".d-id.com")
-
-                                val wantsAudio =
-                                    request.resources.contains(
-                                        PermissionRequest
-                                            .RESOURCE_AUDIO_CAPTURE
-                                    )
+                                )
+                                val wantsAudio = request.resources.contains(
+                                    PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                                )
 
                                 if (!trusted || !wantsAudio) {
                                     request.deny()
@@ -194,17 +179,11 @@ fun AlexVoiceScreen(
                                     ) == PackageManager.PERMISSION_GRANTED
 
                                 if (hasPermission) {
-                                    val audio =
-                                        request.resources.filter {
-                                            it == PermissionRequest
-                                                .RESOURCE_AUDIO_CAPTURE
-                                        }.toTypedArray()
-
-                                    if (audio.isNotEmpty()) {
-                                        request.grant(audio)
-                                    } else {
-                                        request.deny()
-                                    }
+                                    request.grant(
+                                        arrayOf(
+                                            PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                                        )
+                                    )
                                 } else {
                                     pendingRequest = request
                                     microphonePermission.launch(
@@ -213,27 +192,34 @@ fun AlexVoiceScreen(
                                 }
                             }
                         }
+
+                        override fun onPermissionRequestCanceled(
+                            request: PermissionRequest
+                        ) {
+                            if (pendingRequest === request) {
+                                pendingRequest = null
+                            }
+                        }
                     }
 
                     loadUrl(ALEX_PAGE)
                 }
+            },
+            update = {
+                webView = it
             }
         )
 
-        if (loading) {
+        if (loading && !loadError) {
             Column(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .background(
-                        AlexFullBackground.copy(alpha = 0.94f)
-                    )
+                    .background(AlexFullBackground.copy(alpha = 0.94f))
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularProgressIndicator(color = AlexFullCyan)
-
                 Spacer(Modifier.height(14.dp))
-
                 Text(
                     "Алекс подключается...",
                     color = Color.White,
@@ -258,7 +244,7 @@ fun AlexVoiceScreen(
                 )
 
                 Text(
-                    "Проверь интернет и открой страницу alex.html в браузере.",
+                    "Проверь интернет и доступность страницы alex.html.",
                     color = Color.LightGray
                 )
 
@@ -289,4 +275,8 @@ fun AlexVoiceScreen(
             Text("← Назад", color = Color.White)
         }
     }
+}
+
+private fun isTrustedDidHost(host: String): Boolean {
+    return host == "d-id.com" || host.endsWith(".d-id.com")
 }
