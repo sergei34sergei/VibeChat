@@ -48,19 +48,18 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
 
-    // Дополнительные иконки для интерфейса Vibe Chat
+    // Полный набор Material-иконок
     implementation("androidx.compose.material:material-icons-extended")
 
+    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-ai")
     implementation("com.google.firebase:firebase-appcheck-debug")
-
-    // Облачное хранение фотографий пользователей
     implementation("com.google.firebase:firebase-storage")
 
-    // Отображение аватарок по ссылкам
+    // Отображение аватарок
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
