@@ -1186,6 +1186,7 @@ private fun VibeChatsListScreen(
         mutableStateOf<List<ConversationPreview>>(emptyList())
     }
     var error by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
 
     DisposableEffect(myId) {
         var chatsReg: ListenerRegistration? = null
@@ -1343,107 +1344,192 @@ private fun VibeChatsListScreen(
         }
     }
 
+    val filteredPreviews = previews.filter { chat ->
+        chat.otherUserName.contains(searchQuery.trim(), ignoreCase = true) ||
+            chat.lastText.contains(searchQuery.trim(), ignoreCase = true)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        VibeSectionTitle("Мои чаты", "Личные сообщения и общение")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Сообщения",
+                    color = Color.White,
+                    fontSize = 27.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    "Твои разговоры в одном месте",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 3.dp)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(VibeGradient),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("✦", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            }
+        }
 
-        VibeButton(
-            text = "◎  Найти людей",
-            onClick = onOpenUsers,
-            modifier = Modifier.fillMaxWidth()
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("Поиск по чатам", color = Muted) },
+            leadingIcon = { Text("⌕", color = Cyan, fontSize = 25.sp) },
+            shape = RoundedCornerShape(18.dp),
+            colors = VibeFieldColors
         )
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Личные чаты", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (previews.isEmpty()) "Начни новый разговор" else "${previews.size} переписок",
+                    color = Muted,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            TextButton(onClick = onOpenUsers) {
+                Text("＋ Новый чат", color = Cyan, fontWeight = FontWeight.Bold)
+            }
+        }
 
         if (error.isNotBlank()) {
-            Text(error, color = Pink, fontSize = 12.sp)
+            Text(
+                text = error,
+                color = Pink,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
         }
 
         if (previews.isEmpty() && error.isBlank()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 30.dp),
+                    .weight(1f)
+                    .padding(vertical = 18.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(VibeCardGradient)
+                    .padding(24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("✉", color = Cyan, fontSize = 44.sp)
-
-                    Spacer(Modifier.height(10.dp))
-
+                    Box(
+                        modifier = Modifier
+                            .size(82.dp)
+                            .clip(CircleShape)
+                            .background(VibeGradient),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("✉", color = Color.White, fontSize = 38.sp)
+                    }
+                    Spacer(Modifier.height(18.dp))
                     Text(
-                        "Здесь появятся твои переписки",
+                        "Пока здесь тихо",
                         color = Color.White,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
                         textAlign = TextAlign.Center
                     )
-
-                    Spacer(Modifier.height(6.dp))
-
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        "Открой «Люди» и выбери собеседника.",
+                        "Найди друзей в Vibe Chat и отправь первое сообщение. Твои переписки появятся здесь.",
                         color = Muted,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    VibeButton(
+                        text = "Найти людей  →",
+                        onClick = onOpenUsers,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
-        }
-
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(previews, key = { it.chatId }) { chat ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(VibeCardGradient)
-                        .clickable {
-                            if (chat.otherUserId.isNotBlank()) {
-                                onOpenChat(
-                                    chat.otherUserId,
-                                    chat.otherUserName
-                                )
+        } else if (filteredPreviews.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Ничего не найдено", color = Muted, fontSize = 14.sp)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(filteredPreviews, key = { it.chatId }) { chat ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(VibeCardGradient)
+                            .clickable {
+                                if (chat.otherUserId.isNotBlank()) {
+                                    onOpenChat(chat.otherUserId, chat.otherUserName)
+                                }
+                            }
+                            .padding(horizontal = 13.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        VibeAvatar(chat.otherUserName, 54)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                chat.otherUserName,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.height(5.dp))
+                            Text(
+                                chat.lastText.ifBlank { "Начни общение ✨" },
+                                color = Muted,
+                                fontSize = 12.sp,
+                                maxLines = 1
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(readableTime(chat.lastAt), color = Cyan, fontSize = 10.sp)
+                            Spacer(Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x332DDBFF)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("›", color = Cyan, fontSize = 22.sp)
                             }
                         }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    VibeAvatar(chat.otherUserName, 48)
-
-                    Spacer(Modifier.width(12.dp))
-
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            chat.otherUserName,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Spacer(Modifier.height(4.dp))
-
-                        Text(
-                            chat.lastText.ifBlank { "Начни общение" },
-                            color = Muted,
-                            fontSize = 12.sp,
-                            maxLines = 1
-                        )
-                    }
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            readableTime(chat.lastAt),
-                            color = Cyan,
-                            fontSize = 10.sp
-                        )
-
-                        Spacer(Modifier.height(5.dp))
-
-                        Text("›", color = Purple, fontSize = 22.sp)
                     }
                 }
             }
