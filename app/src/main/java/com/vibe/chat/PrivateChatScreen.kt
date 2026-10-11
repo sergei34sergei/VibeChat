@@ -1,4 +1,3 @@
-
 package com.vibe.chat
 
 import androidx.compose.foundation.background
@@ -6,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,7 +62,11 @@ fun PrivateChatScreen(
     var input by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
-    var chatReady by remember(otherUserId, myId) { mutableStateOf(false) }
+    var chatReady by remember(otherUserId, myId) {
+        mutableStateOf(false)
+    }
+
+    val listState = rememberLazyListState()
 
     val chatId = remember(myId, otherUserId) {
         listOf(myId, otherUserId).sorted().joinToString("_")
@@ -71,28 +76,36 @@ fun PrivateChatScreen(
         var registration: ListenerRegistration? = null
 
         if (myId.isNotBlank()) {
-            registration = db.collection("users").document(myId)
+            registration = db.collection("users")
+                .document(myId)
                 .addSnapshotListener { snap, _ ->
-                    myName = snap?.getString("name")?.takeIf { it.isNotBlank() }
-                        ?: currentUser?.phoneNumber.orEmpty().ifBlank {
-                            "Пользователь"
-                        }
+                    myName = snap?.getString("name")
+                        ?.takeIf { it.isNotBlank() }
+                        ?: currentUser?.phoneNumber.orEmpty()
+                            .ifBlank { "Пользователь" }
                 }
         }
 
-        onDispose { registration?.remove() }
+        onDispose {
+            registration?.remove()
+        }
     }
 
     DisposableEffect(chatId, myId, otherUserId) {
         var messageRegistration: ListenerRegistration? = null
 
-        if (myId.isNotBlank() && otherUserId.isNotBlank() && myId != otherUserId) {
+        if (
+            myId.isNotBlank() &&
+            otherUserId.isNotBlank() &&
+            myId != otherUserId
+        ) {
             val chatRef = db.collection("chats").document(chatId)
 
             fun startMessagesListener() {
                 messageRegistration?.remove()
 
-                messageRegistration = chatRef.collection("messages")
+                messageRegistration = chatRef
+                    .collection("messages")
                     .orderBy("createdAt")
                     .addSnapshotListener { snapshot, e ->
                         if (e != null) {
@@ -125,9 +138,19 @@ fun PrivateChatScreen(
             }.addOnFailureListener { e ->
                 error = "Не удалось открыть чат: ${e.localizedMessage}"
             }
+        } else {
+            chatReady = false
         }
 
-        onDispose { messageRegistration?.remove() }
+        onDispose {
+            messageRegistration?.remove()
+        }
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
     }
 
     Column(
@@ -136,7 +159,7 @@ fun PrivateChatScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF17102F),
+                        Color(0xFF1A1038),
                         NeonBackground,
                         Color(0xFF100D24)
                     )
@@ -144,39 +167,52 @@ fun PrivateChatScreen(
             )
             .padding(horizontal = 14.dp)
     ) {
-        // Neon header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 12.dp),
+                .padding(top = 10.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
                 onClick = onBack,
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF21183B),
+                shape = RoundedCornerShape(15.dp),
+                color = NeonPanel,
                 border = androidx.compose.foundation.BorderStroke(
-                    1.dp, NeonBlue.copy(alpha = 0.55f)
+                    1.dp,
+                    NeonBlue.copy(alpha = 0.55f)
                 )
             ) {
-                Text(
-                    "‹",
-                    color = NeonBlue,
-                    fontSize = 32.sp,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp)
-                )
+                Box(
+                    modifier = Modifier.size(
+                        width = 48.dp,
+                        height = 46.dp
+                    ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "‹",
+                        color = NeonBlue,
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.Light
+                    )
+                }
             }
 
             Spacer(Modifier.width(12.dp))
 
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
                             listOf(NeonPurple, NeonBlue)
                         )
+                    )
+                    .border(
+                        1.dp,
+                        NeonBlue.copy(alpha = 0.7f),
+                        CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -195,16 +231,25 @@ fun PrivateChatScreen(
                     otherUserName,
                     color = NeonText,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp
+                    fontSize = 17.sp,
+                    maxLines = 1
                 )
+
+                Spacer(Modifier.height(4.dp))
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(if (chatReady) Color(0xFF54F5B2) else NeonMuted)
+                            .background(
+                                if (chatReady) Color(0xFF54F5B2)
+                                else NeonMuted
+                            )
                     )
-                    Spacer(Modifier.width(5.dp))
+
+                    Spacer(Modifier.width(6.dp))
+
                     Text(
                         if (chatReady) "ЛИЧНЫЙ ЧАТ" else "ПОДКЛЮЧЕНИЕ…",
                         color = NeonBlue,
@@ -214,10 +259,17 @@ fun PrivateChatScreen(
                 }
             }
 
-            Text("✦", color = NeonPurple, fontSize = 27.sp)
+            Text(
+                "✦",
+                color = NeonPurple,
+                fontSize = 27.sp
+            )
         }
 
-        HorizontalDivider(color = NeonPurple.copy(alpha = 0.45f))
+        HorizontalDivider(
+            color = NeonPurple.copy(alpha = 0.5f),
+            thickness = 1.dp
+        )
 
         if (error.isNotBlank()) {
             Surface(
@@ -238,31 +290,59 @@ fun PrivateChatScreen(
 
         if (messages.isEmpty()) {
             Box(
-                Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Box(
-                        Modifier
-                            .size(76.dp)
+                        modifier = Modifier
+                            .size(82.dp)
                             .clip(CircleShape)
-                            .background(NeonPurple.copy(alpha = 0.12f))
-                            .border(1.dp, NeonBlue.copy(alpha = 0.6f), CircleShape),
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        NeonPurple.copy(alpha = 0.22f),
+                                        NeonBlue.copy(alpha = 0.08f)
+                                    )
+                                )
+                            )
+                            .border(
+                                1.dp,
+                                NeonBlue.copy(alpha = 0.65f),
+                                CircleShape
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✦", color = NeonBlue, fontSize = 38.sp)
+                        Text(
+                            "✦",
+                            color = NeonBlue,
+                            fontSize = 40.sp
+                        )
                     }
-                    Spacer(Modifier.height(16.dp))
+
+                    Spacer(Modifier.height(18.dp))
+
                     Text(
-                        if (chatReady) "Твоя личная переписка" else "Открываем чат…",
+                        if (chatReady) "Твоя личная переписка"
+                        else "Открываем чат…",
                         color = NeonText,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(6.dp))
+
+                    Spacer(Modifier.height(7.dp))
+
                     Text(
-                        if (chatReady) "Отправь первое сообщение 👋"
-                        else "Подключаемся к Firebase",
+                        if (chatReady) {
+                            "Напиши первое сообщение 👋"
+                        } else {
+                            "Подключаемся к Firebase"
+                        },
                         color = NeonMuted,
                         fontSize = 13.sp,
                         textAlign = TextAlign.Center
@@ -271,28 +351,38 @@ fun PrivateChatScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 14.dp),
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(
+                    top = 14.dp,
+                    bottom = 14.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(messages, key = { it.id }) { message ->
                     val mine = message.authorId == myId
 
+                    val bubbleShape = RoundedCornerShape(
+                        topStart = 20.dp,
+                        topEnd = 20.dp,
+                        bottomStart = if (mine) 20.dp else 5.dp,
+                        bottomEnd = if (mine) 5.dp else 20.dp
+                    )
+
                     Column(
-                        Modifier.fillMaxWidth(),
-                        horizontalAlignment = if (mine) Alignment.End else Alignment.Start
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = if (mine) {
+                            Alignment.End
+                        } else {
+                            Alignment.Start
+                        }
                     ) {
                         Column(
-                            Modifier
+                            modifier = Modifier
                                 .widthIn(max = 300.dp)
-                                .clip(
-                                    RoundedCornerShape(
-                                        topStart = 20.dp,
-                                        topEnd = 20.dp,
-                                        bottomStart = if (mine) 20.dp else 5.dp,
-                                        bottomEnd = if (mine) 5.dp else 20.dp
-                                    )
-                                )
+                                .clip(bubbleShape)
                                 .background(
                                     if (mine) {
                                         Brush.linearGradient(
@@ -312,25 +402,29 @@ fun PrivateChatScreen(
                                 )
                                 .border(
                                     1.dp,
-                                    if (mine) NeonPurple.copy(alpha = 0.8f)
-                                    else NeonBlue.copy(alpha = 0.35f),
-                                    RoundedCornerShape(
-                                        topStart = 20.dp,
-                                        topEnd = 20.dp,
-                                        bottomStart = if (mine) 20.dp else 5.dp,
-                                        bottomEnd = if (mine) 5.dp else 20.dp
-                                    )
+                                    if (mine) {
+                                        NeonPurple.copy(alpha = 0.8f)
+                                    } else {
+                                        NeonBlue.copy(alpha = 0.35f)
+                                    },
+                                    bubbleShape
                                 )
-                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                                .padding(
+                                    horizontal = 14.dp,
+                                    vertical = 10.dp
+                                )
                         ) {
                             if (!mine) {
                                 Text(
-                                    message.authorName.ifBlank { otherUserName },
+                                    message.authorName.ifBlank {
+                                        otherUserName
+                                    },
                                     color = NeonBlue,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(Modifier.height(3.dp))
+
+                                Spacer(Modifier.height(4.dp))
                             }
 
                             Text(
@@ -340,11 +434,19 @@ fun PrivateChatScreen(
                                 lineHeight = 21.sp
                             )
 
-                            message.createdAt?.let {
+                            message.createdAt?.let { timestamp ->
                                 Text(
-                                    SimpleDateFormat("HH:mm", Locale.getDefault())
-                                        .format(Date(it.toDate().time)),
-                                    color = if (mine) Color(0xFFD8CAFF) else NeonMuted,
+                                    SimpleDateFormat(
+                                        "HH:mm",
+                                        Locale.getDefault()
+                                    ).format(
+                                        Date(timestamp.toDate().time)
+                                    ),
+                                    color = if (mine) {
+                                        Color(0xFFD8CAFF)
+                                    } else {
+                                        NeonMuted
+                                    },
                                     fontSize = 10.sp,
                                     modifier = Modifier
                                         .align(Alignment.End)
@@ -357,7 +459,6 @@ fun PrivateChatScreen(
             }
         }
 
-        // Emoji shortcuts
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -365,27 +466,33 @@ fun PrivateChatScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf("😀", "❤️", "😂", "🔥", "👍", "🥰", "😍", "✨").forEach { emoji ->
-                Surface(
-                    onClick = {
-                        if (input.length < 2000) input += emoji
-                    },
-                    color = NeonPanel,
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp, NeonPurple.copy(alpha = 0.4f)
-                    )
-                ) {
-                    Text(
-                        emoji,
-                        fontSize = 19.sp,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 6.dp)
-                    )
+            listOf("😀", "❤️", "😂", "🔥", "👍", "🥰", "😍", "✨")
+                .forEach { emoji ->
+                    Surface(
+                        onClick = {
+                            if (input.length < 2000) {
+                                input += emoji
+                            }
+                        },
+                        color = NeonPanel,
+                        shape = RoundedCornerShape(11.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            NeonPurple.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Text(
+                            emoji,
+                            fontSize = 18.sp,
+                            modifier = Modifier.padding(
+                                horizontal = 5.dp,
+                                vertical = 6.dp
+                            )
+                        )
+                    }
                 }
-            }
         }
 
-        // Neon message composer
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -403,14 +510,17 @@ fun PrivateChatScreen(
                         NeonBlue.copy(alpha = 0.65f),
                         RoundedCornerShape(18.dp)
                     )
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                    .padding(
+                        horizontal = 14.dp,
+                        vertical = 14.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicTextField(
                     value = input,
                     onValueChange = { input = it.take(2000) },
                     modifier = Modifier.weight(1f),
-                    textStyle = androidx.compose.ui.text.TextStyle(
+                    textStyle = TextStyle(
                         color = NeonText,
                         fontSize = 15.sp
                     ),
@@ -437,13 +547,18 @@ fun PrivateChatScreen(
             Surface(
                 onClick = {
                     val textToSend = input.trim()
-                    if (textToSend.isNotBlank() && chatReady &&
-                        myId.isNotBlank() && !sending
+
+                    if (
+                        textToSend.isNotBlank() &&
+                        chatReady &&
+                        myId.isNotBlank() &&
+                        !sending
                     ) {
                         sending = true
                         error = ""
 
-                        db.collection("chats").document(chatId)
+                        db.collection("chats")
+                            .document(chatId)
                             .collection("messages")
                             .add(
                                 mapOf(
@@ -471,7 +586,11 @@ fun PrivateChatScreen(
                     .size(52.dp)
                     .background(
                         brush = Brush.linearGradient(
-                            listOf(NeonPurple, Color(0xFF5548D9), NeonBlue)
+                            listOf(
+                                NeonPurple,
+                                Color(0xFF5548D9),
+                                NeonBlue
+                            )
                         ),
                         shape = RoundedCornerShape(17.dp)
                     )
@@ -482,7 +601,7 @@ fun PrivateChatScreen(
                     )
             ) {
                 Box(
-                    Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
