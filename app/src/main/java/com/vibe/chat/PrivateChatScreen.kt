@@ -1,6 +1,9 @@
 package com.vibe.chat
 
+import android.graphics.BitmapFactory
+import android.util.Base64
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,23 +68,39 @@ fun PrivateChatScreen(
     val myId = currentUser?.uid.orEmpty()
 
     var myName by remember(myId) {
-        mutableStateOf(currentUser?.phoneNumber.orEmpty().ifBlank { "Пользователь" })
+        mutableStateOf(
+            currentUser?.phoneNumber.orEmpty().ifBlank { "Пользователь" }
+        )
     }
+
+    var actualOtherName by remember(otherUserId, otherUserName) {
+        mutableStateOf(otherUserName.ifBlank { "Собеседник" })
+    }
+
+    var otherAvatarBase64 by remember(otherUserId) {
+        mutableStateOf("")
+    }
+
     var messages by remember(myId, otherUserId) {
         mutableStateOf<List<PrivateMessage>>(emptyList())
     }
+
     var input by remember(myId, otherUserId) {
         mutableStateOf("")
     }
+
     var error by remember(myId, otherUserId) {
         mutableStateOf("")
     }
+
     var sending by remember(myId, otherUserId) {
         mutableStateOf(false)
     }
+
     var chatReady by remember(myId, otherUserId) {
         mutableStateOf(false)
     }
+
     var loading by remember(myId, otherUserId) {
         mutableStateOf(true)
     }
@@ -88,6 +109,50 @@ fun PrivateChatScreen(
 
     val chatId = remember(myId, otherUserId) {
         listOf(myId, otherUserId).sorted().joinToString("_")
+    }
+
+    // Загружаем актуальное имя и общую фотографию собеседника.
+    DisposableEffect(otherUserId) {
+        var registration: ListenerRegistration? = null
+
+        if (otherUserId.isNotBlank()) {
+            registration = db.collection("users")
+                .document(otherUserId)
+                .addSnapshotListener { snapshot, exception ->
+                    if (exception != null) {
+                        // Не закрываем чат, если временно недоступен профиль.
+                    } else if (snapshot != null && snapshot.exists()) {
+                        val savedName = snapshot.getString("name")
+                        actualOtherName = savedName
+                            ?.takeIf { it.isNotBlank() }
+                            ?: otherUserName.ifBlank { "Собеседник" }
+
+                        otherAvatarBase64 =
+                            snapshot.getString("avatarBase64").orEmpty()
+                    }
+                }
+        }
+
+        onDispose {
+            registration?.remove()
+        }
+    }
+
+    // Декодируем фотографию из Firestore.
+    val otherAvatarBitmap = remember(otherAvatarBase64) {
+        try {
+            if (otherAvatarBase64.isBlank()) {
+                null
+            } else {
+                val bytes = Base64.decode(
+                    otherAvatarBase64,
+                    Base64.DEFAULT
+                )
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // Проверяем пользователя и входные данные.
@@ -113,7 +178,9 @@ fun PrivateChatScreen(
                 .document(myId)
                 .addSnapshotListener { snapshot, exception ->
                     if (exception != null) {
-                        error = "Ошибка профиля: ${exception.localizedMessage ?: "неизвестная ошибка"}"
+                        error = "Ошибка профиля: ${
+                            exception.localizedMessage ?: "неизвестная ошибка"
+                        }"
                     } else {
                         val savedName = snapshot?.getString("name")
                         myName = savedName
@@ -165,7 +232,8 @@ fun PrivateChatScreen(
 
                         if (exception != null) {
                             error = "Не удалось загрузить сообщения: ${
-                                exception.localizedMessage ?: "проверь подключение и правила Firebase"
+                                exception.localizedMessage
+                                    ?: "проверь подключение и правила Firebase"
                             }"
                             loading = false
                         } else if (snapshot != null) {
@@ -188,7 +256,8 @@ fun PrivateChatScreen(
                 chatReady = false
                 loading = false
                 error = "Не удалось открыть чат: ${
-                    exception.localizedMessage ?: "проверь интернет и настройки Firebase"
+                    exception.localizedMessage
+                        ?: "проверь интернет и настройки Firebase"
                 }"
             }
         } else {
@@ -221,7 +290,6 @@ fun PrivateChatScreen(
                 )
             )
     ) {
-        // Декоративные круги без отрицательных отступов.
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -246,7 +314,7 @@ fun PrivateChatScreen(
                 .imePadding()
                 .padding(horizontal = 16.dp)
         ) {
-            // Шапка личного чата.
+            // Шапка личного чата с фотографией собеседника.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -278,6 +346,7 @@ fun PrivateChatScreen(
                 Box(
                     modifier = Modifier
                         .size(50.dp)
+                        .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
                                 listOf(
@@ -285,24 +354,34 @@ fun PrivateChatScreen(
                                     Color(0xFF5945C8),
                                     VibeChatBlue
                                 )
-                            ),
-                            CircleShape
+                            )
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = otherUserName.firstOrNull()?.uppercase() ?: "V",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                    if (otherAvatarBitmap != null) {
+                        Image(
+                            bitmap = otherAvatarBitmap.asImageBitmap(),
+                            contentDescription = "Фотография профиля собеседника",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            text = actualOtherName.firstOrNull()?.uppercase() ?: "V",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
 
                 Spacer(Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = otherUserName.ifBlank { "Собеседник" },
+                        text = actualOtherName,
                         color = VibeChatText,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
@@ -324,7 +403,11 @@ fun PrivateChatScreen(
                         Spacer(Modifier.width(6.dp))
 
                         Text(
-                            text = if (chatReady) "ЛИЧНАЯ ПЕРЕПИСКА" else "ПОДКЛЮЧЕНИЕ…",
+                            text = if (chatReady) {
+                                "ЛИЧНАЯ ПЕРЕПИСКА"
+                            } else {
+                                "ПОДКЛЮЧЕНИЕ…"
+                            },
                             color = VibeChatMuted,
                             fontSize = 9.sp,
                             letterSpacing = 1.sp
@@ -359,7 +442,6 @@ fun PrivateChatScreen(
                     )
             )
 
-            // Сообщение об ошибке, если Firebase не отвечает.
             if (error.isNotBlank()) {
                 Surface(
                     color = Color(0xFF351D38),
@@ -381,7 +463,6 @@ fun PrivateChatScreen(
                 }
             }
 
-            // Список сообщений занимает оставшееся место.
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -445,7 +526,7 @@ fun PrivateChatScreen(
 
                             Text(
                                 text = if (chatReady) {
-                                    "Напиши ${otherUserName.ifBlank { "собеседнику" }} первое сообщение 👋"
+                                    "Напиши $actualOtherName первое сообщение 👋"
                                 } else {
                                     "Здесь будут ваши личные сообщения"
                                 },
@@ -473,7 +554,11 @@ fun PrivateChatScreen(
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = if (mine) Alignment.End else Alignment.Start
+                        horizontalAlignment = if (mine) {
+                            Alignment.End
+                        } else {
+                            Alignment.Start
+                        }
                     ) {
                         Column(
                             modifier = Modifier
@@ -521,7 +606,7 @@ fun PrivateChatScreen(
                             if (!mine) {
                                 Text(
                                     text = message.authorName.ifBlank {
-                                        otherUserName.ifBlank { "Собеседник" }
+                                        actualOtherName
                                     },
                                     color = VibeChatBlue,
                                     fontSize = 11.sp,
@@ -707,7 +792,8 @@ fun PrivateChatScreen(
                                     }
                                     .addOnFailureListener { exception ->
                                         error = "Не удалось отправить сообщение: ${
-                                            exception.localizedMessage ?: "ошибка Firebase"
+                                            exception.localizedMessage
+                                                ?: "ошибка Firebase"
                                         }"
                                         sending = false
                                     }
