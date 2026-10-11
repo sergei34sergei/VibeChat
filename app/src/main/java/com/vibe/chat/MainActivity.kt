@@ -113,11 +113,7 @@ private fun bitmapToAvatarBase64(bitmap: Bitmap): String {
 
     val output = ByteArrayOutputStream()
 
-    resized.compress(
-        Bitmap.CompressFormat.JPEG,
-        60,
-        output
-    )
+    resized.compress(Bitmap.CompressFormat.JPEG, 60, output)
 
     if (resized !== bitmap) {
         resized.recycle()
@@ -1060,6 +1056,11 @@ private fun VibeUsers(
     }
 }
 
+/*
+ * Исправленный список личных чатов.
+ * Участники берутся из participantIds.
+ * Последнее сообщение читается из chats/{chatId}/messages.
+ */
 @Composable
 private fun VibeChatsListScreen(
     myId: String,
@@ -1072,55 +1073,166 @@ private fun VibeChatsListScreen(
     var previews by remember {
         mutableStateOf<List<ConversationPreview>>(emptyList())
     }
-
     var error by remember { mutableStateOf("") }
 
     DisposableEffect(myId) {
-        var profileReg: ListenerRegistration? = null
         var chatsReg: ListenerRegistration? = null
 
-        if (myId.isNotBlank()) {
-            profileReg = db.collection("users")
-                .document(myId)
-                .addSnapshotListener { _, _ -> }
+        val messageRegs =
+            mutableMapOf<String, ListenerRegistration>()
+        val userRegs =
+            mutableMapOf<String, ListenerRegistration>()
 
+        val participantsByChat =
+            mutableMapOf<String, String>()
+        val latestMessages =
+            mutableMapOf<String, Pair<String, Timestamp?>>()
+        val userNames =
+            mutableMapOf<String, String>()
+
+        var activeChatIds = emptySet<String>()
+
+        fun refreshPreviews() {
+            previews = activeChatIds.mapNotNull { chatId ->
+                val otherId = participantsByChat[chatId]
+                    ?: return@mapNotNull null
+
+                val last = latestMessages[chatId]
+
+                ConversationPreview(
+                    chatId = chatId,
+                    otherUserId = otherId,
+                    otherUserName = userNames[otherId] ?: "Собеседник",
+                    lastText = last?.first.orEmpty(),
+                    lastAt = last?.second
+                )
+            }.sortedWith(
+                compareByDescending<ConversationPreview> {
+                    it.lastAt?.toDate()?.time ?: 0L
+                }.thenBy {
+                    it.otherUserName.lowercase(Locale.getDefault())
+                }
+            )
+        }
+
+        if (myId.isBlank()) {
+            error = "Не удалось определить аккаунт. Перезайди в приложение."
+        } else {
             chatsReg = db.collection("chats")
-                .whereArrayContains("members", myId)
+                .whereArrayContains("participantIds", myId)
                 .addSnapshotListener { snapshot, e ->
                     if (e != null) {
                         error =
-                            e.localizedMessage ?: "Не удалось загрузить чаты"
-                    } else if (snapshot != null) {
-                        previews = snapshot.documents.map { doc ->
-                            val members =
-                                doc.get("members") as? List<*>
-                                    ?: emptyList<Any>()
+                            "Ошибка загрузки чатов: ${
+                                e.localizedMessage ?: "проверь правила Firestore"
+                            }"
+                        return@addSnapshotListener
+                    }
 
-                            val other = members
-                                .filterIsInstance<String>()
-                                .firstOrNull { it != myId }
-                                .orEmpty()
+                    if (snapshot == null) return@addSnapshotListener
 
-                            ConversationPreview(
-                                chatId = doc.id,
-                                otherUserId = other,
-                                otherUserName =
-                                    doc.getString("otherName_$myId")
-                                        ?: "Собеседник",
-                                lastText =
-                                    doc.getString("lastText").orEmpty(),
-                                lastAt = doc.getTimestamp("lastAt")
-                            )
-                        }.sortedByDescending {
-                            it.lastAt?.toDate()?.time ?: 0L
+                    error = ""
+
+                    val documents = snapshot.documents
+                    activeChatIds = documents.map { it.id }.toSet()
+
+                    // Удаляем слушатели переписок, которых больше нет.
+                    (messageRegs.keys - activeChatIds).toList().forEach { chatId ->
+                        messageRegs.remove(chatId)?.remove()
+                        participantsByChat.remove(chatId)
+                        latestMessages.remove(chatId)
+                    }
+
+                    // Слушатели пользователей больше не нужны,
+                    // если пользователь больше не является собеседником.
+                    val currentOtherIds = documents.mapNotNull { doc ->
+                        val ids = doc.get("participantIds") as? List<*>
+                            ?: emptyList<Any>()
+
+                        ids.filterIsInstance<String>()
+                            .firstOrNull { it != myId }
+                    }.toSet()
+
+                    (userRegs.keys - currentOtherIds).toList().forEach { uid ->
+                        userRegs.remove(uid)?.remove()
+                        userNames.remove(uid)
+                    }
+
+                    documents.forEach { doc ->
+                        val ids = doc.get("participantIds") as? List<*>
+                            ?: emptyList<Any>()
+
+                        val otherId = ids
+                            .filterIsInstance<String>()
+                            .firstOrNull { it != myId }
+                            .orEmpty()
+
+                        if (otherId.isBlank()) return@forEach
+
+                        participantsByChat[doc.id] = otherId
+
+                        // Загружаем имя собеседника из его профиля.
+                        if (otherId !in userRegs) {
+                            userRegs[otherId] =
+                                db.collection("users")
+                                    .document(otherId)
+                                    .addSnapshotListener userListener@{ userDoc, userError ->
+                                        if (userError != null) return@userListener
+
+                                        userNames[otherId] =
+                                            userDoc?.getString("name")
+                                                ?.takeIf { it.isNotBlank() }
+                                                ?: "Пользователь"
+
+                                        refreshPreviews()
+                                    }
+                        }
+
+                        // Получаем последнее сообщение из подколлекции.
+                        if (doc.id !in messageRegs) {
+                            val chatId = doc.id
+
+                            messageRegs[chatId] =
+                                db.collection("chats")
+                                    .document(chatId)
+                                    .collection("messages")
+                                    .orderBy(
+                                        "createdAt",
+                                        Query.Direction.DESCENDING
+                                    )
+                                    .limit(1)
+                                    .addSnapshotListener messageListener@{ messages, messageError ->
+                                        if (messageError != null) {
+                                            error =
+                                                "Ошибка сообщений: ${
+                                                    messageError.localizedMessage
+                                                        ?: "не удалось загрузить"
+                                                }"
+                                            return@messageListener
+                                        }
+
+                                        val lastDoc =
+                                            messages?.documents?.firstOrNull()
+
+                                        latestMessages[chatId] =
+                                            Pair(
+                                                lastDoc?.getString("text").orEmpty(),
+                                                lastDoc?.getTimestamp("createdAt")
+                                            )
+
+                                        refreshPreviews()
+                                    }
                         }
                     }
+
+                    refreshPreviews()
                 }
         }
 
         onDispose {
-            profileReg?.remove()
             chatsReg?.remove()
+            messageRegs.values.forEach { it.remove() }
+            userRegs.values.forEach { it.remove() }
         }
     }
 
