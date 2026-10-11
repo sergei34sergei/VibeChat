@@ -134,7 +134,7 @@ fun AlexVoiceScreen() {
     val pulse = rememberInfiniteTransition(label = "alex-pulse")
     val glow by pulse.animateFloat(initialValue = 0.90f, targetValue = 1.08f, animationSpec = infiniteRepeatable(animation = tween(1350), repeatMode = RepeatMode.Reverse), label = "glow")
 
-    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF090D20), Color(0xFF080B17), Color(0xFF11102A))).padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF090D20), Color(0xFF080B17), Color(0xFF11102A)))).padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("ALEX · VIBE AI", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, fontSize = 18.sp)
