@@ -1,21 +1,16 @@
-
 package com.vibe.chat
 
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -24,48 +19,80 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.ContextCompat
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import java.util.Locale
-import kotlin.math.cos
-import kotlin.math.sin
 
-private val AlexCyan = Color(0xFF57E8FF)
-private val AlexBlue = Color(0xFF328BFF)
-private val AlexPurple = Color(0xFF9B6BFF)
-private val AlexBg = Color(0xFF050817)
-private val AlexPanel = Color(0xFF111A30)
-private val AlexText = Color(0xFFF2F5FF)
-private val AlexMuted = Color(0xFF8E9BBB)
+private val AlexBg = Color(0xFF070A16)
+private val AlexCard = Color(0xFF11182B)
+private val AlexCardLight = Color(0xFF19233C)
+private val AlexCyan = Color(0xFF55E8FF)
+private val AlexBlue = Color(0xFF438BFF)
+private val AlexPurple = Color(0xFF9B68FF)
+private val AlexWhite = Color(0xFFF5F7FF)
+private val AlexMuted = Color(0xFF9CA9C9)
+private val AlexError = Color(0xFFFF8196)
 
 private data class AlexMessage(
     val role: String,
@@ -74,162 +101,240 @@ private data class AlexMessage(
 
 @Composable
 fun AlexVoiceScreen() {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val handler = remember { Handler(Looper.getMainLooper()) }
-
-    var draft by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var listening by remember { mutableStateOf(false) }
-    var speaking by remember { mutableStateOf(false) }
-    var ttsReady by remember { mutableStateOf(false) }
-    var voiceActive by remember { mutableStateOf(false) }
-    var voicePaused by remember { mutableStateOf(false) }
-    var voiceError by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
 
     val messages = remember {
         mutableStateListOf(
             AlexMessage(
                 "assistant",
-                "Привет! Я Алекс ✦\n\nРад тебя видеть. Напиши сообщение или открой голосовой режим — поговорим."
+                "Привет! Я Алекс — твой AI-помощник. Можем общаться здесь или голосом. Чем займёмся?"
             )
         )
     }
 
-    val listState = rememberLazyListState()
-
-    val tts = remember {
-        TextToSpeech(context) { status ->
-            ttsReady = status == TextToSpeech.SUCCESS
-            if (status != TextToSpeech.SUCCESS) {
-                voiceError = "Не удалось запустить голосовой движок телефона."
-            }
-        }
-    }
-
-    LaunchedEffect(ttsReady) {
-        if (ttsReady) {
-            val result = tts.setLanguage(Locale("ru", "RU"))
-            tts.setPitch(0.96f)
-            tts.setSpeechRate(0.94f)
-
-            if (
-                result == TextToSpeech.LANG_MISSING_DATA ||
-                result == TextToSpeech.LANG_NOT_SUPPORTED
-            ) {
-                voiceError =
-                    "Русский голос не установлен. Проверь настройки синтеза речи Android."
-            }
-        }
-    }
-
-    val recognizer = remember {
-        try {
-            if (SpeechRecognizer.isRecognitionAvailable(context)) {
-                SpeechRecognizer.createSpeechRecognizer(context)
-            } else null
-        } catch (_: Exception) {
-            null
-        }
-    }
+    var draft by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var voiceActive by remember { mutableStateOf(false) }
+    var voicePaused by remember { mutableStateOf(false) }
+    var listening by remember { mutableStateOf(false) }
+    var speaking by remember { mutableStateOf(false) }
+    var showClearDialog by remember { mutableStateOf(false) }
+    var ttsReady by remember { mutableStateOf(false) }
+    var permissionDenied by remember { mutableStateOf(false) }
 
     val latestVoiceActive by rememberUpdatedState(voiceActive)
     val latestVoicePaused by rememberUpdatedState(voicePaused)
     val latestBusy by rememberUpdatedState(busy)
     val latestSpeaking by rememberUpdatedState(speaking)
 
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var recognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
+
+    val speechIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ru-RU")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+    }
+
+    val startListeningRef = remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        permissionDenied = !granted
+        if (granted && voiceActive && !voicePaused) {
+            startListeningRef.value?.invoke()
+        }
+    }
+
+    DisposableEffect(context) {
+        val engine = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val result = tts?.setLanguage(Locale("ru", "RU"))
+                ttsReady = result != TextToSpeech.LANG_MISSING_DATA &&
+                    result != TextToSpeech.LANG_NOT_SUPPORTED
+            }
+        }
+        tts = engine
+
+        if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+        }
+
+        onDispose {
+            recognizer?.cancel()
+            recognizer?.destroy()
+            recognizer = null
+
+            tts?.stop()
+            tts?.shutdown()
+            tts = null
+        }
+    }
+
+    fun speak(text: String) {
+        val engine = tts
+        if (engine == null || !ttsReady || !voiceActive || voicePaused) return
+
+        speaking = true
+        engine.speak(
+            text,
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "alex_reply_${System.currentTimeMillis()}"
+        )
+    }
+
     fun startListening() {
         if (!voiceActive || voicePaused || busy || speaking) return
 
         if (
-            ContextCompat.checkSelfPermission(
+            androidx.core.content.ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            voiceError = "Разреши доступ к микрофону."
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
 
         val speechRecognizer = recognizer
         if (speechRecognizer == null) {
-            voiceError = "На телефоне не найден сервис распознавания речи."
+            messages.add(
+                AlexMessage(
+                    "assistant",
+                    "Распознавание речи недоступно на этом устройстве. Проверь приложение Google и настройки голосового ввода."
+                )
+            )
             return
         }
 
         try {
-            voiceError = ""
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(
-                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                )
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ru-RU")
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Алекс слушает")
-            }
-            speechRecognizer.startListening(intent)
+            listening = true
+            speechRecognizer.startListening(speechIntent)
         } catch (e: Exception) {
             listening = false
-            voiceError = "Не получилось включить микрофон."
-            Log.e("AlexVoice", "startListening", e)
+            messages.add(
+                AlexMessage(
+                    "assistant",
+                    "Не удалось запустить микрофон: ${e.localizedMessage ?: "неизвестная ошибка"}"
+                )
+            )
         }
     }
 
-    val latestStartListening by rememberUpdatedState<() -> Unit> {
-        { startListening() }
-    }
+    startListeningRef.value = { startListening() }
 
-    fun stopVoice() {
-        voiceActive = false
-        voicePaused = false
-        listening = false
-        speaking = false
-        try {
-            recognizer?.cancel()
-            tts.stop()
-        } catch (_: Exception) {
+    DisposableEffect(recognizer) {
+        val speechRecognizer = recognizer
+
+        val listener = object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                listening = true
+            }
+
+            override fun onBeginningOfSpeech() {
+                listening = true
+            }
+
+            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onBufferReceived(buffer: ByteArray?) = Unit
+            override fun onEndOfSpeech() {
+                listening = false
+            }
+
+            override fun onError(error: Int) {
+                listening = false
+
+                if (
+                    latestVoiceActive &&
+                    !latestVoicePaused &&
+                    !latestBusy &&
+                    !latestSpeaking
+                ) {
+                    scope.launch {
+                        delay(900)
+                        startListeningRef.value?.invoke()
+                    }
+                }
+            }
+
+            override fun onResults(results: Bundle?) {
+                listening = false
+                val spokenText = results
+                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    ?.firstOrNull()
+                    ?.trim()
+
+                if (!spokenText.isNullOrBlank() && latestVoiceActive && !latestVoicePaused) {
+                    draft = spokenText
+                    scope.launch {
+                        delay(150)
+                        startListeningRef.value?.let {
+                            // Отправка сообщения выполняется основной кнопкой отправки.
+                        }
+                    }
+                } else if (latestVoiceActive && !latestVoicePaused) {
+                    scope.launch {
+                        delay(500)
+                        startListeningRef.value?.invoke()
+                    }
+                }
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onEvent(eventType: Int, params: Bundle?) = Unit
+        }
+
+        speechRecognizer?.setRecognitionListener(listener)
+
+        onDispose {
+            speechRecognizer?.cancel()
         }
     }
 
-    fun sendMessage(text: String, speakReply: Boolean) {
+    fun sendMessage(text: String) {
         val question = text.trim()
         if (question.isBlank() || busy) return
 
+        draft = ""
         messages.add(AlexMessage("user", question))
         busy = true
         listening = false
-        voiceError = ""
 
         scope.launch {
             try {
-                val history = messages.dropLast(1).takeLast(12)
-
-                val prompt = buildString {
-                    append(
-                        "Ты Алекс — дружелюбный ИИ-помощник приложения Vibe Chat. "
-                    )
-                    append("Отвечай по-русски естественно, понятно и по делу. ")
-                    append("Учитывай историю беседы. ")
-                    append("Не заявляй, что выполнил действия, которых не выполнял. ")
-                    append("Не выдумывай доступ к устройству или личным данным.\n\n")
-                    append("История:\n")
-
-                    history.forEach { message ->
-                        append(
-                            if (message.role == "user") "Пользователь: "
-                            else "Алекс: "
-                        )
-                        append(message.text)
-                        append("\n")
+                val history = messages
+                    .dropLast(1)
+                    .takeLast(16)
+                    .joinToString("\n") { message ->
+                        val label = if (message.role == "user") "Пользователь" else "Алекс"
+                        "$label: ${message.text}"
                     }
 
-                    append("\nНовое сообщение пользователя: ")
-                    append(question)
-                    append("\nОтвет Алекса:")
-                }
+                val prompt = """
+                    Ты — Алекс, дружелюбный AI-помощник внутри приложения Vibe Chat.
+                    Отвечай по-русски, естественно, понятно и по делу.
+                    Не утверждай, что можешь выполнять действия, которых не выполнял.
+                    Если не знаешь ответа, честно скажи об этом.
+
+                    История разговора:
+                    $history
+
+                    Новое сообщение пользователя:
+                    $question
+
+                    Ответь на последнее сообщение пользователя.
+                """.trimIndent()
 
                 val model = Firebase.ai(
                     backend = GenerativeBackend.googleAI()
@@ -239,240 +344,45 @@ fun AlexVoiceScreen() {
                     model.generateContent(prompt)
                 }
 
-                val reply = response.text?.trim().orEmpty()
-                if (reply.isBlank()) {
-                    throw IllegalStateException(
-                        "AI вернул пустой ответ. Попробуй ещё раз."
-                    )
-                }
+                val answer = response.text?.trim()
 
-                messages.add(AlexMessage("assistant", reply))
-
-                if (speakReply) {
-                    if (ttsReady) {
-                        speaking = true
-                        val result = tts.speak(
-                            reply,
-                            TextToSpeech.QUEUE_FLUSH,
-                            null,
-                            "alex_${System.currentTimeMillis()}"
+                if (answer.isNullOrBlank()) {
+                    messages.add(
+                        AlexMessage(
+                            "assistant",
+                            "Я получил пустой ответ от AI. Попробуй задать вопрос ещё раз."
                         )
-
-                        if (result == TextToSpeech.ERROR) {
-                            speaking = false
-                            voiceError = "Ответ готов, но озвучить его не удалось."
-                        }
-                    } else {
-                        voiceError =
-                            "Ответ готов, но голосовой движок ещё не готов."
+                    )
+                } else {
+                    messages.add(AlexMessage("assistant", answer))
+                    if (voiceActive && !voicePaused) {
+                        speak(answer)
                     }
                 }
-            } catch (e: CancellationException) {
-                throw e
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                messages.add(
+                    AlexMessage(
+                        "assistant",
+                        "Ответ не пришёл за 45 секунд. Проверь интернет и доступность модели, затем попробуй ещё раз."
+                    )
+                )
             } catch (e: Exception) {
-                Log.e("AlexVoice", "AI request failed", e)
-
-                val detail = e.localizedMessage
+                val details = e.localizedMessage
                     ?.takeIf { it.isNotBlank() }
                     ?: e.javaClass.simpleName
-
-                val friendly = when {
-                    e is kotlinx.coroutines.TimeoutCancellationException ->
-                        "Ответ не пришёл за 45 секунд. Проверь интернет и доступность AI."
-                    detail.contains("App Check", ignoreCase = true) ||
-                        detail.contains("attestation", ignoreCase = true) ||
-                        detail.contains("token", ignoreCase = true) ->
-                        "Firebase отклонил проверку App Check. Нужно проверить настройки Firebase."
-                    detail.contains("quota", ignoreCase = true) ||
-                        detail.contains("resource exhausted", ignoreCase = true) ->
-                        "Похоже, исчерпан лимит запросов AI. Попробуй позже."
-                    detail.contains("permission", ignoreCase = true) ||
-                        detail.contains("unauthenticated", ignoreCase = true) ||
-                        detail.contains("unauthorized", ignoreCase = true) ->
-                        "Firebase не разрешил запрос. Проверь доступ и настройки проекта."
-                    else ->
-                        "Не удалось получить ответ от AI."
-                }
 
                 messages.add(
                     AlexMessage(
                         "assistant",
-                        "$friendly\n\nПодробности: $detail"
+                        "Не удалось получить ответ AI.\n\nПодробности: $details"
                     )
                 )
-                voiceError = friendly
-
-                Toast.makeText(
-                    context,
-                    "Алекс не смог получить ответ",
-                    Toast.LENGTH_SHORT
-                ).show()
             } finally {
                 busy = false
-
-                if (latestVoiceActive && !latestVoicePaused) {
-                    handler.postDelayed({
-                        if (
-                            latestVoiceActive &&
-                            !latestVoicePaused &&
-                            !latestBusy &&
-                            !latestSpeaking
-                        ) {
-                            latestStartListening()
-                        }
-                    }, 900)
+                if (voiceActive && !voicePaused && !speaking) {
+                    delay(900)
+                    startListeningRef.value?.invoke()
                 }
-            }
-        }
-    }
-
-    val micPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            voiceError = ""
-            startListening()
-        } else {
-            stopVoice()
-            voiceError = "Разреши доступ к микрофону, чтобы говорить с Алексом."
-        }
-    }
-
-    DisposableEffect(recognizer) {
-        recognizer?.setRecognitionListener(
-            object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {
-                    listening = true
-                    voiceError = ""
-                }
-
-                override fun onBeginningOfSpeech() {
-                    listening = true
-                }
-
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-
-                override fun onEndOfSpeech() {
-                    listening = false
-                }
-
-                override fun onError(error: Int) {
-                    listening = false
-
-                    voiceError = when (error) {
-                        SpeechRecognizer.ERROR_AUDIO ->
-                            "Проблема с микрофоном."
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-                            "Разреши доступ к микрофону."
-                        SpeechRecognizer.ERROR_NETWORK,
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-                            "Проверь интернет для распознавания речи."
-                        SpeechRecognizer.ERROR_NO_MATCH ->
-                            "Я не расслышал слова. Попробуй ещё раз."
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
-                            "Микрофон занят."
-                        SpeechRecognizer.ERROR_SERVER ->
-                            "Сервис распознавания временно недоступен."
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-                            "Я не услышал речь. Можешь начать говорить."
-                        else ->
-                            "Не удалось распознать речь. Попробуй ещё раз."
-                    }
-
-                    val retryable =
-                        error == SpeechRecognizer.ERROR_NO_MATCH ||
-                        error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ||
-                        error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY
-
-                    if (retryable && latestVoiceActive && !latestVoicePaused) {
-                        handler.postDelayed({
-                            if (
-                                latestVoiceActive &&
-                                !latestVoicePaused &&
-                                !latestBusy &&
-                                !latestSpeaking
-                            ) {
-                                latestStartListening()
-                            }
-                        }, 1200)
-                    }
-                }
-
-                override fun onResults(results: Bundle?) {
-                    listening = false
-
-                    val words = results
-                        ?.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION
-                        )
-                        ?.firstOrNull()
-                        .orEmpty()
-                        .trim()
-
-                    if (words.isNotBlank()) {
-                        voiceError = ""
-                        sendMessage(words, speakReply = true)
-                    } else if (latestVoiceActive && !latestVoicePaused) {
-                        handler.postDelayed({
-                            latestStartListening()
-                        }, 900)
-                    }
-                }
-
-                override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            }
-        )
-
-        onDispose {
-            try {
-                recognizer?.cancel()
-                recognizer?.destroy()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    DisposableEffect(tts) {
-        tts.setOnUtteranceProgressListener(
-            object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {
-                    handler.post { speaking = true }
-                }
-
-                override fun onDone(utteranceId: String?) {
-                    handler.post {
-                        speaking = false
-                        if (latestVoiceActive && !latestVoicePaused) {
-                            handler.postDelayed({
-                                if (
-                                    latestVoiceActive &&
-                                    !latestVoicePaused &&
-                                    !latestBusy &&
-                                    !latestSpeaking
-                                ) {
-                                    latestStartListening()
-                                }
-                            }, 650)
-                        }
-                    }
-                }
-
-                override fun onError(utteranceId: String?) {
-                    handler.post {
-                        speaking = false
-                        voiceError = "Не удалось озвучить ответ."
-                    }
-                }
-            }
-        )
-
-        onDispose {
-            try {
-                tts.stop()
-                tts.shutdown()
-            } catch (_: Exception) {
             }
         }
     }
@@ -483,399 +393,247 @@ fun AlexVoiceScreen() {
         }
     }
 
-    val chatTransition = rememberInfiniteTransition(label = "alex-chat")
-    val headerPulse by chatTransition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1600),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "header-pulse"
-    )
+    fun stopVoice() {
+        voiceActive = false
+        voicePaused = false
+        listening = false
+        speaking = false
+        recognizer?.cancel()
+        tts?.stop()
+    }
 
-    Column(
+    fun toggleVoice() {
+        if (voiceActive) {
+            stopVoice()
+        } else {
+            voiceActive = true
+            voicePaused = false
+            if (
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                startListening()
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF030611),
-                        Color(0xFF091229),
-                        Color(0xFF100C27)
+                        Color(0xFF0B1022),
+                        AlexBg,
+                        Color(0xFF090D1D)
                     )
                 )
-                )
-            .padding(horizontal = 15.dp, vertical = 8.dp)
+            )
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(23.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color(0xFF111C36),
-                            Color(0xFF15152E),
-                            Color(0xFF21153B)
-                        )
-                    )
-                )
-                .border(
-                    1.dp,
-                    AlexCyan.copy(alpha = 0.25f),
-                    RoundedCornerShape(23.dp)
-                )
-                .padding(13.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 16.dp)
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(53.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(AlexCyan, AlexBlue, AlexPurple)
-                        )
-                    )
-                    .padding(2.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF10162D)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(top = 18.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "✦",
-                    color = AlexCyan,
-                    fontSize = (29 * headerPulse).sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-
-            Spacer(Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Алекс",
-                    color = Color.White,
-                    fontSize = 23.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    when {
-                        busy -> "Подбираю ответ…"
-                        speaking -> "Говорю с тобой"
-                        listening -> "Слушаю тебя"
-                        else -> "Твой AI-помощник"
-                    },
-                    color = AlexCyan,
-                    fontSize = 12.sp
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    "VIBE",
-                    color = AlexCyan,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 2.sp
-                )
-                Text(
-                    "AI",
-                    color = AlexPurple,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(15.dp))
-                .background(Color(0xFF0D1730))
-                .padding(horizontal = 13.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (busy) Color(0xFFFFC078) else AlexCyan
-                    )
-            )
-            Spacer(Modifier.width(9.dp))
-            Text(
-                when {
-                    busy -> "Алекс формирует ответ"
-                    speaking -> "Голосовой ответ"
-                    listening -> "Микрофон включён"
-                    else -> "Готов к разговору"
-                },
-                color = AlexMuted,
-                fontSize = 11.sp,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                "●",
-                color = AlexCyan.copy(alpha = 0.75f),
-                fontSize = 9.sp
-            )
-        }
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(13.dp),
-            contentPadding = PaddingValues(vertical = 15.dp)
-        ) {
-            itemsIndexed(messages) { _, message ->
-                val isUser = message.role == "user"
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = if (isUser) {
-                        Arrangement.End
-                    } else {
-                        Arrangement.Start
-                    },
-                    verticalAlignment = Alignment.Bottom
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .shadow(14.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(AlexCyan, AlexBlue, AlexPurple)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (!isUser) {
+                    Text("A", color = AlexBg, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Алекс AI",
+                        color = AlexWhite,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            modifier = Modifier
-                                .padding(end = 7.dp, bottom = 3.dp)
-                                .size(29.dp)
+                            Modifier
+                                .size(7.dp)
                                 .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(AlexBlue, AlexPurple)
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "✦",
-                                color = Color.White,
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-
-                    Column(
-                        modifier = Modifier.widthIn(max = 290.dp),
-                        horizontalAlignment = if (isUser) {
-                            Alignment.End
-                        } else {
-                            Alignment.Start
-                        }
-                    ) {
-                        Text(
-                            if (isUser) "ТЫ" else "АЛЕКС",
-                            color = if (isUser) AlexPurple else AlexCyan,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp,
-                            modifier = Modifier.padding(
-                                horizontal = 7.dp,
-                                vertical = 3.dp
-                            )
+                                .background(if (busy) AlexPurple else AlexCyan)
                         )
-
+                        Spacer(Modifier.width(6.dp))
                         Text(
-                            text = message.text,
-                            color = AlexText,
-                            fontSize = 14.sp,
-                            lineHeight = 21.sp,
-                            modifier = Modifier
-                                .clip(
-                                    RoundedCornerShape(
-                                        topStart = 19.dp,
-                                        topEnd = 19.dp,
-                                        bottomStart = if (isUser) 19.dp else 5.dp,
-                                        bottomEnd = if (isUser) 5.dp else 19.dp
-                                    )
-                                )
-                                .background(
-                                    if (isUser) {
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF4B327F),
-                                                Color(0xFF29264E)
-                                            )
-                                        )
-                                    } else {
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF14233F),
-                                                Color(0xFF11182E)
-                                            )
-                                        )
-                                    }
-                                )
-                                .border(
-                                    1.dp,
-                                    if (isUser) {
-                                        AlexPurple.copy(alpha = 0.48f)
-                                    } else {
-                                        AlexBlue.copy(alpha = 0.30f)
-                                    },
-                                    RoundedCornerShape(19.dp)
-                                )
-                                .padding(14.dp)
+                            if (busy) "Думаю над ответом…" else "Твой AI-помощник",
+                            color = AlexMuted,
+                            fontSize = 12.sp
                         )
                     }
                 }
+
+                TextButton(onClick = { showClearDialog = true }) {
+                    Text("Очистить", color = AlexCyan, fontSize = 12.sp)
+                }
             }
 
-            if (busy) {
-                item {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp)
+                    .clickable { toggleVoice() },
+                shape = RoundedCornerShape(22.dp),
+                color = AlexCard,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    AlexCyan.copy(alpha = 0.22f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(AlexPanel)
-                            .padding(12.dp)
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        AlexCyan.copy(alpha = 0.24f),
+                                        AlexPurple.copy(alpha = 0.24f)
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(19.dp),
-                            color = AlexCyan,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(Modifier.width(11.dp))
+                        Text("♫", color = AlexCyan, fontSize = 24.sp)
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Алекс думает…",
-                            color = AlexCyan,
-                            fontSize = 13.sp
+                            "Голосовой режим",
+                            color = AlexWhite,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
                         )
+                        Text(
+                            "Общайся с Алексом голосом",
+                            color = AlexMuted,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Text("ОТКРЫТЬ  ›", color = AlexCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                state = listState,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    top = 4.dp,
+                    bottom = 16.dp
+                )
+            ) {
+                items(messages) { message ->
+                    AlexMessageBubble(message)
+                }
+
+                if (busy) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(AlexCard)
+                                .padding(horizontal = 16.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(17.dp),
+                                color = AlexCyan,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text("Алекс формирует ответ", color = AlexMuted, fontSize = 13.sp)
+                        }
                     }
                 }
             }
-        }
 
-        if (voiceError.isNotBlank()) {
-            Text(
-                voiceError,
-                color = Color(0xFFFFC078),
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
-                modifier = Modifier.padding(bottom = 7.dp)
-            )
-        }
+            if (permissionDenied) {
+                Text(
+                    "Для голосового режима разреши доступ к микрофону в настройках Android.",
+                    color = AlexError,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
 
-        Surface(
-            color = Color(0xFF10182D),
-            shape = RoundedCornerShape(24.dp),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                AlexBlue.copy(alpha = 0.42f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(9.dp)) {
-                OutlinedTextField(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 12.dp)
+                    .imePadding()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(AlexCardLight)
+                    .border(1.dp, AlexCyan.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                    .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BasicTextField(
                     value = draft,
                     onValueChange = { draft = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text(
-                            "Напиши Алексу…",
-                            color = AlexMuted
-                        )
-                    },
-                    shape = RoundedCornerShape(18.dp),
-                    maxLines = 4,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences
+                    modifier = Modifier.weight(1f),
+                    textStyle = TextStyle(
+                        color = AlexWhite,
+                        fontSize = 15.sp
                     ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AlexCyan,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = AlexCyan,
-                        focusedContainerColor = Color(0xFF0B1224),
-                        unfocusedContainerColor = Color(0xFF0B1224)
-                    )
+                    cursorBrush = Brush.linearGradient(listOf(AlexCyan, AlexPurple)),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (draft.isEmpty()) {
+                                Text("Напиши Алексу…", color = AlexMuted, fontSize = 14.sp)
+                            }
+                            innerTextField()
+                        }
+                    }
                 )
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.width(8.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .shadow(8.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(listOf(AlexCyan, AlexBlue, AlexPurple))
+                        )
+                        .clickable(enabled = !busy) { sendMessage(draft) },
+                    contentAlignment = Alignment.Center
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            voiceActive = true
-                            voicePaused = false
-                            voiceError = ""
-
-                            if (
-                                ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.RECORD_AUDIO
-                                ) == PackageManager.PERMISSION_GRANTED
-                            ) {
-                                startListening()
-                            } else {
-                                micPermission.launch(
-                                    Manifest.permission.RECORD_AUDIO
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(0.9f)
-                            .height(49.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AlexCyan
-                        )
-                    ) {
-                        Text("🎙 Голос", fontSize = 12.sp)
-                    }
-
-                    Button(
-                        onClick = {
-                            val question = draft.trim()
-                            if (question.isNotBlank() && !busy) {
-                                draft = ""
-                                sendMessage(question, speakReply = false)
-                            }
-                        },
-                        enabled = !busy && draft.isNotBlank(),
-                        modifier = Modifier
-                            .weight(1.2f)
-                            .height(49.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6543D5),
-                            disabledContainerColor = Color(0xFF292943)
-                        )
-                    ) {
-                        Text(
-                            if (busy) "Думаю…" else "Отправить  ➤",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text("➤", color = AlexBg, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            "V I B E   C H A T   •   A L E X   A I",
-            color = Color(0xFF52658B),
-            fontSize = 9.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 
     if (voiceActive) {
@@ -886,349 +644,371 @@ fun AlexVoiceScreen() {
                 decorFitsSystemWindows = false
             )
         ) {
-            AlexFullScreenVoiceMode(
+            AlexVoiceOrbScreen(
                 listening = listening,
                 speaking = speaking,
                 busy = busy,
                 paused = voicePaused,
-                error = voiceError,
-                onExit = { stopVoice() },
-                onToggleMic = {
-                    if (!voicePaused) {
+                onTogglePause = {
+                    if (voicePaused) {
+                        voicePaused = false
+                        startListening()
+                    } else {
                         voicePaused = true
                         listening = false
-                        try {
-                            recognizer?.cancel()
-                        } catch (_: Exception) {
-                        }
-                        voiceError = "Микрофон на паузе."
-                    } else {
-                        voicePaused = false
-                        voiceError = ""
-                        startListening()
+                        speaking = false
+                        recognizer?.cancel()
+                        tts?.stop()
                     }
+                },
+                onClose = { stopVoice() },
+                onTypeMessage = {
+                    stopVoice()
                 }
+            )
+        }
+    }
+
+    if (showClearDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDialog = false },
+            containerColor = AlexCard,
+            title = {
+                Text("Очистить переписку?", color = AlexWhite)
+            },
+            text = {
+                Text(
+                    "История на этом экране будет удалена.",
+                    color = AlexMuted
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        messages.clear()
+                        messages.add(
+                            AlexMessage(
+                                "assistant",
+                                "Чат очищен. Я готов к новому разговору!"
+                            )
+                        )
+                        showClearDialog = false
+                    }
+                ) {
+                    Text("Очистить", color = AlexCyan)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDialog = false }) {
+                    Text("Отмена", color = AlexMuted)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun AlexMessageBubble(message: AlexMessage) {
+    val isUser = message.role == "user"
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    ) {
+        if (!isUser) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 8.dp, top = 2.dp)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(listOf(AlexCyan, AlexBlue, AlexPurple))
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("A", color = AlexBg, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.84f)
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 20.dp,
+                        topEnd = 20.dp,
+                        bottomStart = if (isUser) 20.dp else 5.dp,
+                        bottomEnd = if (isUser) 5.dp else 20.dp
+                    )
+                )
+                .background(
+                    if (isUser) {
+                        Brush.linearGradient(listOf(Color(0xFF174E72), Color(0xFF34306C)))
+                    } else {
+                        Brush.linearGradient(listOf(AlexCard, Color(0xFF151D34)))
+                    }
+                )
+                .border(
+                    1.dp,
+                    if (isUser) AlexCyan.copy(alpha = 0.2f)
+                    else Color.White.copy(alpha = 0.05f),
+                    RoundedCornerShape(20.dp)
+                )
+                .padding(14.dp)
+        ) {
+            Text(
+                if (isUser) "ТЫ" else "АЛЕКС",
+                color = if (isUser) AlexCyan else AlexPurple,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp
+            )
+            Spacer(Modifier.height(5.dp))
+            Text(
+                message.text,
+                color = AlexWhite,
+                fontSize = 14.sp,
+                lineHeight = 21.sp
             )
         }
     }
 }
 
 @Composable
-private fun AlexFullScreenVoiceMode(
+private fun AlexVoiceOrbScreen(
     listening: Boolean,
     speaking: Boolean,
     busy: Boolean,
     paused: Boolean,
-    error: String,
-    onExit: () -> Unit,
-    onToggleMic: () -> Unit
+    onTogglePause: () -> Unit,
+    onClose: () -> Unit,
+    onTypeMessage: () -> Unit
 ) {
-    val transition = rememberInfiniteTransition(label = "alex-orb")
-
+    val transition = rememberInfiniteTransition(label = "alex_orb")
+    val pulse by transition.animateFloat(
+        initialValue = 0.88f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1700, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
     val rotation by transition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (speaking) 4200 else 14000
-            )
+            animation = tween(12000, easing = androidx.compose.animation.core.LinearEasing)
         ),
-        label = "orb-rotation"
+        label = "rotation"
     )
 
-    val pulse by transition.animateFloat(
-        initialValue = 0.90f,
-        targetValue = when {
-            speaking -> 1.16f
-            listening -> 1.10f
-            else -> 1.03f
-        },
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = if (speaking) 500 else 1200
-            ),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "orb-pulse"
-    )
-
-    val wave by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "orb-wave"
-    )
+    val status = when {
+        paused -> "ПАУЗА"
+        busy -> "АЛЕКС ДУМАЕТ"
+        speaking -> "АЛЕКС ГОВОРИТ"
+        listening -> "Я ТЕБЯ СЛУШАЮ"
+        else -> "ГОТОВ К ОБЩЕНИЮ"
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF02040E),
-                        Color(0xFF08122A),
-                        Color(0xFF160B30),
-                        Color(0xFF030511)
-                    )
+                    listOf(Color(0xFF080B1C), Color(0xFF10112C), Color(0xFF070A16))
                 )
             )
-            .padding(horizontal = 22.dp, vertical = 18.dp)
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(24.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = onExit) {
-                    Text("‹  Назад в чат", color = AlexCyan)
-                }
-
-                Text(
-                    "VIBE VOICE",
-                    color = AlexMuted,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.sp
-                )
-            }
-
-            Spacer(Modifier.height(17.dp))
-
-            Text(
-                "АЛЕКС",
-                color = Color.White,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 7.sp
-            )
-
-            Spacer(Modifier.height(9.dp))
-
-            Text(
-                when {
-                    busy -> "ОБДУМЫВАЮ ТВОЙ ВОПРОС"
-                    speaking -> "ГОВОРЮ С ТОБОЙ"
-                    listening -> "Я СЛУШАЮ ТЕБЯ"
-                    paused -> "МИКРОФОН НА ПАУЗЕ"
-                    else -> "Я РЯДОМ. МОЖЕМ ПОГОВОРИТЬ"
-                },
-                color = AlexCyan,
-                fontSize = 10.sp,
-                letterSpacing = 1.1.sp,
-                textAlign = TextAlign.Center
-            )
-        }
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.56f)
-                .align(Alignment.Center)
-        ) {
-            val cx = size.width / 2f
-            val cy = size.height / 2f
-            val base = size.minDimension * 0.245f
-            val r = base * pulse
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0x6642DFFF),
-                        Color(0x33208DFF),
-                        Color(0x229260FF),
-                        Color.Transparent
-                    ),
-                    center = Offset(cx, cy),
-                    radius = r * 2.5f
-                ),
-                radius = r * 2.5f,
-                center = Offset(cx, cy)
-            )
-
-            drawCircle(
-                color = AlexCyan.copy(alpha = 0.09f + wave * 0.08f),
-                radius = r * (1.95f + wave * 0.18f),
-                center = Offset(cx, cy),
-                style = Stroke(width = 1.4f)
-            )
-
-            drawCircle(
-                color = AlexBlue.copy(alpha = 0.65f),
-                radius = r * 1.55f,
-                center = Offset(cx, cy),
-                style = Stroke(width = 1.6f)
-            )
-
-            drawCircle(
-                color = AlexPurple.copy(alpha = 0.8f),
-                radius = r * 1.34f,
-                center = Offset(cx, cy),
-                style = Stroke(width = 2.2f)
-            )
-
-            drawArc(
-                color = AlexCyan,
-                startAngle = rotation,
-                sweepAngle = 115f,
-                useCenter = false,
-                topLeft = Offset(cx - r * 1.68f, cy - r * 1.68f),
-                size = androidx.compose.ui.geometry.Size(
-                    r * 3.36f,
-                    r * 3.36f
-                ),
-                style = Stroke(width = 4f, cap = StrokeCap.Round)
-            )
-
-            drawArc(
-                color = AlexPurple,
-                startAngle = -rotation * 0.72f + 130f,
-                sweepAngle = 80f,
-                useCenter = false,
-                topLeft = Offset(cx - r * 1.48f, cy - r * 1.48f),
-                size = androidx.compose.ui.geometry.Size(
-                    r * 2.96f,
-                    r * 2.96f
-                ),
-                style = Stroke(width = 3f, cap = StrokeCap.Round)
-            )
-
-            drawArc(
-                color = Color(0xFF8DD9FF).copy(alpha = 0.8f),
-                startAngle = rotation * 0.55f + 210f,
-                sweepAngle = 45f,
-                useCenter = false,
-                topLeft = Offset(cx - r * 1.82f, cy - r * 1.82f),
-                size = androidx.compose.ui.geometry.Size(
-                    r * 3.64f,
-                    r * 3.64f
-                ),
-                style = Stroke(width = 2f, cap = StrokeCap.Round)
-            )
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFECFFFF),
-                        Color(0xFF62DFFF),
-                        Color(0xFF247DFF),
-                        Color(0xFF512DAB),
-                        Color(0xFF080D24)
-                    ),
-                    center = Offset(cx - r * 0.25f, cy - r * 0.28f),
-                    radius = r * 1.55f
-                ),
-                radius = r,
-                center = Offset(cx, cy)
-            )
-
-            drawCircle(
-                color = Color.White.copy(alpha = 0.8f),
-                radius = r * 0.08f,
-                center = Offset(cx - r * 0.34f, cy - r * 0.38f)
-            )
-
-            for (i in 0 until 36) {
-                val angle =
-                    (i * 10f + rotation) * (Math.PI.toFloat() / 180f)
-                val distance =
-                    r * (1.95f + 0.13f * sin(angle * 3f + wave))
-                val x = cx + cos(angle) * distance
-                val y = cy + sin(angle) * distance
-
-                drawCircle(
-                    color = if (i % 3 == 0) AlexCyan else AlexPurple,
-                    radius = if (speaking) 2.7f else 1.7f,
-                    center = Offset(x, y),
-                    alpha = if (speaking) 0.95f else 0.5f
-                )
-            }
-        }
+        Text(
+            "VIBE  •  ALEX AI",
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 18.dp),
+            color = AlexMuted,
+            fontSize = 11.sp,
+            letterSpacing = 3.sp,
+            fontWeight = FontWeight.Bold
+        )
 
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = 18.dp),
+                .align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                when {
-                    busy -> "Секунду, я думаю…"
-                    speaking -> "Слушай мой ответ"
-                    listening -> "Говори — я слушаю"
-                    paused -> "Нажми микрофон, чтобы продолжить"
-                    else -> "Нажми микрофон, чтобы говорить"
-                },
-                color = AlexText,
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center
-            )
-
-            if (error.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    error,
-                    color = Color(0xFFFFC078),
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(Modifier.height(23.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier.size(290.dp),
+                contentAlignment = Alignment.Center
             ) {
-                OutlinedButton(
-                    onClick = onToggleMic,
-                    modifier = Modifier
-                        .height(58.dp)
-                        .widthIn(min = 160.dp),
-                    shape = RoundedCornerShape(30.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = AlexCyan
-                    )
-                ) {
-                    Text(
-                        if (paused) "🎙 Продолжить" else "Ⅱ  Пауза",
-                        fontSize = 13.sp
-                    )
-                }
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val base = size.minDimension * 0.32f
 
-                Spacer(Modifier.width(12.dp))
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                AlexCyan.copy(alpha = 0.13f),
+                                AlexBlue.copy(alpha = 0.08f),
+                                Color.Transparent
+                            ),
+                            center = center,
+                            radius = base * 2.0f
+                        ),
+                        radius = base * 2.0f,
+                        center = center
+                    )
 
-                Button(
-                    onClick = onExit,
-                    modifier = Modifier.size(58.dp),
-                    shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF702B57)
-                    ),
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text("■", fontSize = 23.sp, color = Color.White)
+                    drawCircle(
+                        color = AlexCyan.copy(alpha = 0.42f),
+                        radius = base * pulse,
+                        center = center,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+
+                    drawCircle(
+                        color = AlexPurple.copy(alpha = 0.62f),
+                        radius = base * 1.28f,
+                        center = center,
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+
+                    drawArc(
+                        color = AlexCyan.copy(alpha = 0.9f),
+                        startAngle = rotation,
+                        sweepAngle = 105f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - base * 1.55f, center.y - base * 1.55f),
+                        size = androidx.compose.ui.geometry.Size(base * 3.1f, base * 3.1f),
+                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                    )
+
+                    drawArc(
+                        color = AlexPurple.copy(alpha = 0.85f),
+                        startAngle = 180f - rotation * 0.7f,
+                        sweepAngle = 75f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - base * 1.78f, center.y - base * 1.78f),
+                        size = androidx.compose.ui.geometry.Size(base * 3.56f, base * 3.56f),
+                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                    )
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            listOf(Color(0xFFB9FFFF), AlexCyan, AlexBlue, AlexPurple),
+                            center = center,
+                            radius = base * 1.15f
+                        ),
+                        radius = base * pulse * 0.76f,
+                        center = center
+                    )
+
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.85f),
+                        radius = base * 0.15f,
+                        center = Offset(center.x - base * 0.25f, center.y - base * 0.25f)
+                    )
                 }
             }
 
             Spacer(Modifier.height(20.dp))
 
             Text(
-                "ГОЛОСОВОЙ РЕЖИМ • ALEX AI",
-                color = Color(0xFF64759D),
-                fontSize = 9.sp,
-                letterSpacing = 1.5.sp
+                status,
+                color = if (paused) AlexMuted else AlexCyan,
+                fontSize = 12.sp,
+                letterSpacing = 2.5.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                when {
+                    paused -> "Можешь продолжить в любой момент"
+                    busy -> "Подбираю ответ для тебя…"
+                    speaking -> "Слушай мой ответ"
+                    listening -> "Говори, я слушаю"
+                    else -> "Мы на связи"
+                },
+                color = AlexWhite,
+                fontSize = 17.sp,
+                textAlign = TextAlign.Center
             )
         }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                VoiceControl(
+                    symbol = if (paused) "▶" else "Ⅱ",
+                    label = if (paused) "Продолжить" else "Пауза",
+                    onClick = onTogglePause
+                )
+
+                Spacer(Modifier.width(30.dp))
+
+                VoiceControl(
+                    symbol = "✕",
+                    label = "Завершить",
+                    onClick = onClose,
+                    danger = true
+                )
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            TextButton(onClick = onTypeMessage) {
+                Text("Вернуться к текстовому чату", color = AlexMuted, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun VoiceControl(
+    symbol: String,
+    label: String,
+    onClick: () -> Unit,
+    danger: Boolean = false
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(66.dp)
+                .shadow(12.dp, CircleShape)
+                .clip(CircleShape)
+                .background(
+                    if (danger) {
+                        Brush.linearGradient(listOf(Color(0xFFFA668D), Color(0xFF8F3C79)))
+                    } else {
+                        Brush.linearGradient(listOf(AlexCyan, AlexBlue, AlexPurple))
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                symbol,
+                color = if (danger) Color.White else AlexBg,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(label, color = AlexMuted, fontSize = 12.sp)
     }
 }
