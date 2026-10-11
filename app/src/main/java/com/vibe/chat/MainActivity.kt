@@ -798,6 +798,8 @@ fun VibeHome(
 
         if (privateChatUserId == null) {
             NavigationBar(
+                modifier = Modifier.height(64.dp),
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 containerColor = Color(0xFF0B0D20),
                 contentColor = Color.White,
                 tonalElevation = 0.dp
@@ -819,12 +821,12 @@ fun VibeHome(
                             Text(
                                 text = item.second,
                                 color = if (tab == item.first) Cyan else Muted,
-                                fontSize = 21.sp,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         },
                         label = {
-                            Text(item.first, fontSize = 9.sp)
+                            Text(item.first, fontSize = 10.sp, lineHeight = 11.sp, maxLines = 1)
                         },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Cyan,
@@ -1284,15 +1286,15 @@ private fun VibeChatsListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 14.dp),
+                .padding(top = 6.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     "Сообщения",
                     color = Color.White,
-                    fontSize = 27.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     "Твои разговоры в одном месте",
@@ -1303,12 +1305,12 @@ private fun VibeChatsListScreen(
             }
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(13.dp))
                     .background(VibeGradient),
                 contentAlignment = Alignment.Center
             ) {
-                Text("✦", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                Text("✦", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1319,11 +1321,11 @@ private fun VibeChatsListScreen(
             singleLine = true,
             placeholder = { Text("Поиск по чатам", color = Muted) },
             leadingIcon = { Text("⌕", color = Cyan, fontSize = 25.sp) },
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(15.dp),
             colors = VibeFieldColors
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(10.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1409,53 +1411,41 @@ private fun VibeChatsListScreen(
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(top = 4.dp, bottom = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 items(filteredPreviews, key = { it.chatId }) { chat ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(VibeCardGradient)
                             .clickable {
                                 if (chat.otherUserId.isNotBlank()) {
                                     onOpenChat(chat.otherUserId, chat.otherUserName)
                                 }
                             }
-                            .padding(horizontal = 13.dp, vertical = 14.dp),
+                            .padding(horizontal = 4.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        VibeAvatar(chat.otherUserName, 54)
-                        Spacer(Modifier.width(12.dp))
+                        VibeAvatar(chat.otherUserName, 44)
+                        Spacer(Modifier.width(11.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
                                 chat.otherUserName,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 maxLines = 1
                             )
-                            Spacer(Modifier.height(5.dp))
+                            Spacer(Modifier.height(3.dp))
                             Text(
                                 chat.lastText.ifBlank { "Начни общение ✨" },
                                 color = Muted,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 maxLines = 1
                             )
                         }
                         Spacer(Modifier.width(8.dp))
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(readableTime(chat.lastAt), color = Cyan, fontSize = 10.sp)
-                            Spacer(Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0x332DDBFF)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("›", color = Cyan, fontSize = 22.sp)
-                            }
+                            Text(readableTime(chat.lastAt), color = Muted, fontSize = 10.sp)
                         }
                     }
                 }
