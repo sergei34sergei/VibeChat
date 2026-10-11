@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport"
-        content="width=device-width, initial-scale=1.0,
-                 maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#080d1b">
+        content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080D1B">
   <title>Алекс — Vibe Chat</title>
 
   <style>
@@ -16,62 +15,141 @@
     html, body {
       margin: 0;
       width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #080d1b;
+      min-height: 100%;
+      background: #080D1B;
+      color: #FFFFFF;
       font-family: Arial, sans-serif;
     }
 
     body {
+      min-height: 100vh;
       background:
-        radial-gradient(ellipse at center,
-          #17264b 0%, #080d1b 72%);
+        radial-gradient(ellipse at 50% 35%,
+          #202D5A 0%,
+          #101832 45%,
+          #080D1B 100%);
     }
 
-    #status {
-      position: fixed;
-      top: 18px;
-      left: 0;
-      right: 0;
-      z-index: 1;
-      color: #35e0f5;
-      text-align: center;
-      font-size: 16px;
-      letter-spacing: 3px;
-      font-weight: bold;
-      pointer-events: none;
+    .page {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 18px 12px 24px;
     }
 
-    #hint {
-      position: fixed;
-      bottom: 18px;
-      left: 12px;
-      right: 12px;
-      z-index: 1;
+    .header {
+      width: 100%;
       text-align: center;
-      color: #c5d2ed;
+      padding: 8px 0 16px;
+    }
+
+    .brand {
+      color: #35E0F5;
       font-size: 13px;
-      pointer-events: none;
+      font-weight: bold;
+      letter-spacing: 4px;
+    }
+
+    h1 {
+      margin: 12px 0 6px;
+      font-size: 30px;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      color: #A8B7DD;
+      font-size: 13px;
+    }
+
+    .avatar-frame {
+      position: relative;
+      width: 100%;
+      max-width: 560px;
+      min-height: 420px;
+      flex: 1;
+      overflow: hidden;
+      border: 1px solid rgba(53, 224, 245, 0.55);
+      border-radius: 26px;
+      background: rgba(9, 15, 35, 0.75);
+      box-shadow:
+        0 0 35px rgba(53, 224, 245, 0.12),
+        0 0 65px rgba(150, 60, 255, 0.13);
+    }
+
+    #did-agent-container {
+      width: 100%;
+      min-height: 420px;
+      height: 100%;
+    }
+
+    .hint {
+      max-width: 440px;
+      margin: 16px 8px 0;
+      color: #A8B7DD;
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .footer {
+      margin-top: 16px;
+      color: #68769E;
+      font-size: 10px;
+      letter-spacing: 2px;
+    }
+
+    @media (max-width: 420px) {
+      .avatar-frame,
+      #did-agent-container {
+        min-height: 55vh;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
     }
   </style>
 </head>
 
 <body>
-  <div id="status">АЛЕКС · VIBE CHAT</div>
-  <div id="hint">Нажми на аватара, чтобы начать разговор</div>
+  <main class="page">
+    <header class="header">
+      <div class="brand">VIBE CHAT</div>
+      <h1>Алекс</h1>
+      <div class="subtitle">
+        Твой голосовой AI-собеседник
+      </div>
+    </header>
+
+    <section class="avatar-frame">
+      <div id="did-agent-container"></div>
+    </section>
+
+    <p class="hint">
+      Подключаемся к Алексу. Если видео не появляется,
+      проверь интернет и настройки доступа D-ID.
+      Для голосового разговора разреши использование микрофона.
+    </p>
+
+    <footer class="footer">
+      AURORA NEON · VIBE CHAT
+    </footer>
+  </main>
 
   <script
     type="module"
     src="https://agent.d-id.com/v2/index.js"
-    data-mode="fabio"
+    data-mode="full"
+    data-target-id="did-agent-container"
     data-client-key="ck_JPPvtrHrf9fbRa6p8s868"
     data-agent-id="v2_agt_Chl5tHuq"
     data-name="did-agent"
-    data-monitor="true"
-    data-light-mode="false"
-    data-orientation="horizontal"
-    data-position="right"
-    data-open-mode="expanded">
+    data-orientation="vertical"
+    data-open-mode="expanded"
+    data-auto-connect="true"
+    data-show-agent-name="false">
   </script>
 </body>
 </html>
