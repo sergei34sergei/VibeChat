@@ -263,7 +263,7 @@ private fun VibeHome(userId: String, phone: String, onSignOut: () -> Unit) {
                     when (tab) {
                         VibeTab.Chats -> VibeChatsListScreen(myId = userId, onOpenChat = { id, name -> openPrivateChat = id to name }, onOpenGeneralChat = { openGeneral = true }, onOpenUsers = { tab = VibeTab.People })
                         VibeTab.People -> VibePeopleScreen(db, userId, onOpenProfile = { profileTarget = it }, onOpenChat = { id, name -> openPrivateChat = id to name })
-                        VibeTab.Alex -> AlexAiScreen()
+                        VibeTab.Alex -> AlexVoiceScreen()
                         VibeTab.Photos -> VibePhotoStudioScreen()
                         VibeTab.Profile -> VibeMyProfileScreen(db, userId, phone, onSignOut = onSignOut, onOpenProfile = { profileTarget = it })
                     }
@@ -624,21 +624,53 @@ private fun AlexAiScreen() {
 
 @Composable
 private fun VibePhotoStudioScreen() {
-    var prompt by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    var idea by remember { mutableStateOf("") }
+    var style by remember { mutableStateOf("Кинематографичный реализм") }
+    val styles = listOf("Кинематографичный реализм", "3D-анимация", "Аниме", "Фэнтези", "Неоновый киберпанк", "Милые животные")
+    val prompt = remember(idea, style) {
+        if (idea.isBlank()) "" else "Создай изображение в стиле: $style. Сюжет: ${idea.trim()}. Высокая детализация, выразительная композиция, красивое освещение, чистые формы, без надписей и водяных знаков."
+    }
     Column(Modifier.fillMaxSize()) {
-        VibeSectionTitle("Фото AI", "Твоя творческая студия")
-        Column(Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(26.dp)).background(VibePanel).border(1.dp, Color(0xFF39365F), RoundedCornerShape(26.dp)).padding(20.dp)) {
-            Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Color(0xFF45266C), Color(0xFF123B55), Color(0xFF1B2140)))), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("✧", color = VibeCyan, fontSize = 58.sp); Text("AI PHOTO STUDIO", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 2.sp); Text("Идея начинается здесь", color = Color(0xFFD3D9FF), fontSize = 12.sp) }
+        VibeSectionTitle("Фото AI", "Бесплатная творческая студия промптов")
+        Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(26.dp)).background(VibePanel).border(1.dp, Color(0xFF39365F), RoundedCornerShape(26.dp)).padding(18.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            Box(Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Color(0xFF45266C), Color(0xFF123B55), Color(0xFF1B2140)))), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("✧", color = VibeCyan, fontSize = 52.sp)
+                    Text("VIBE CREATIVE STUDIO", color = Color.White, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+                    Text("Придумай идею — подготовь промпт", color = Color(0xFFD3D9FF), fontSize = 12.sp)
+                }
             }
-            Spacer(Modifier.height(18.dp))
-            Text("Опиши изображение", color = VibeText, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(16.dp))
+            Text("1. Выбери стиль", color = VibeText, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
-            VibeField(prompt, { prompt = it }, "Например: футуристический город под дождём", singleLine = false)
+            styles.forEach { item ->
+                val selected = style == item
+                OutlinedButton(
+                    onClick = { style = item }, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = if (selected) VibeCyan else VibeText),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) VibeCyan else Color(0xFF343A62))
+                ) { Text((if (selected) "✓  " else "   ") + item) }
+            }
             Spacer(Modifier.height(12.dp))
-            Text("Поле для идеи готово. Генерация и скачивание изображений потребуют подключения отдельного сервиса генерации; этот экран пока не создаёт картинку самостоятельно.", color = VibeMuted, fontSize = 12.sp, lineHeight = 18.sp)
+            Text("2. Опиши, что хочешь увидеть", color = VibeText, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            VibeField(idea, { idea = it }, "Например: мой пёс в кабине футуристического автомобиля", singleLine = false)
+            Spacer(Modifier.height(14.dp))
+            Text("Готовый промпт", color = VibeCyan, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF0A1022)).border(1.dp, Color(0xFF303A5C), RoundedCornerShape(16.dp)).padding(12.dp)) {
+                Text(if (prompt.isBlank()) "Здесь появится подробное описание для генератора изображений." else prompt, color = if (prompt.isBlank()) VibeMuted else VibeText, fontSize = 13.sp, lineHeight = 19.sp)
+            }
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(onClick = { prompt = "Кинематографичный портрет в стиле Aurora Neon, фиолетово-голубое свечение, высокая детализация" }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = VibeCyan)) { Text("Вставить пример промпта") }
+            VibeButton("Скопировать промпт", enabled = prompt.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Vibe prompt", prompt))
+                Toast.makeText(context, "Промпт скопирован", Toast.LENGTH_SHORT).show()
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("Важно: эта студия работает без платных запросов — она составляет и копирует промпты, но пока не генерирует картинки сама. Можно вставить готовый промпт в выбранный тобой сервис. Мы не подключаем платный API и не списываем деньги.", color = VibeMuted, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
 }
