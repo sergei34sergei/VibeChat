@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeUp
@@ -50,6 +51,7 @@ import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -71,7 +73,10 @@ private enum class AlexMode {
 }
 
 @Composable
-fun AlexVoiceScreen() {
+fun AlexVoiceScreen(
+    onOpenChat: () -> Unit = {},
+    onBack: () -> Unit = {}
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -85,12 +90,13 @@ fun AlexVoiceScreen() {
     var recognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
     var speechEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     var speechReady by remember { mutableStateOf(false) }
+    var responseJob by remember { mutableStateOf<Job?>(null) }
+    var ignoreRecognizerErrors by remember { mutableStateOf(false) }
 
     val conversation = remember {
         mutableStateListOf<Pair<String, String>>()
     }
 
-    // Исправленный вызов Firebase AI: backend передаётся по имени.
     val model = remember {
         Firebase.ai(
             backend = GenerativeBackend.googleAI()
@@ -103,6 +109,20 @@ fun AlexVoiceScreen() {
             mode = AlexMode.READY
             status = "Готов к разговору"
         }
+    }
+
+    // Останавливает генерацию, распознавание речи и озвучивание.
+    fun stopEverything() {
+        ignoreRecognizerErrors = true
+
+        responseJob?.cancel()
+        responseJob = null
+
+        recognizer?.cancel()
+        speechEngine?.stop()
+
+        mode = AlexMode.READY
+        status = "Остановлено"
     }
 
     fun speakAnswer(text: String) {
@@ -145,28 +165,26 @@ fun AlexVoiceScreen() {
         mode = AlexMode.THINKING
         status = "Алекс обдумывает ответ…"
 
-        scope.launch {
+        responseJob = scope.launch {
             try {
+                // Берём только последние сообщения, чтобы не перегружать запрос.
                 val history = conversation
-                    .takeLast(16)
+                    .takeLast(8)
                     .joinToString("\n") { (speaker, text) ->
                         "$speaker: $text"
                     }
 
                 val prompt = """
-                    Ты — Алекс, голосовой ИИ-помощник приложения Vibe Chat.
+                    Ты — Алекс, ИИ-помощник приложения Vibe Chat.
 
-                    Правила:
-                    - Отвечай естественно, дружелюбно и понятно.
-                    - По умолчанию говори на русском языке.
-                    - Не утверждай, что являешься человеком.
-                    - Пиши так, чтобы ответ было удобно слушать вслух.
-                    - Не используй длинные списки без необходимости.
-                    - Не заявляй, что выполнил действие, если у тебя нет
-                      соответствующего инструмента.
-                    - Учитывай контекст предыдущих сообщений.
+                    Отвечай естественно, дружелюбно и по существу.
+                    По умолчанию используй русский язык.
+                    Учитывай историю разговора.
+                    Формулируй ответ удобно для прослушивания вслух.
+                    Не утверждай, что выполнил действие, если у тебя нет
+                    инструмента для его выполнения.
 
-                    История диалога:
+                    История:
                     $history
 
                     Ответь на последнее сообщение пользователя.
@@ -179,19 +197,22 @@ fun AlexVoiceScreen() {
                 val answer = response.text
                     ?.trim()
                     ?.takeIf { it.isNotBlank() }
-                    ?: "Пока не получилось подготовить ответ. Попробуй ещё раз."
+                    ?: "Не получилось подготовить ответ. Попробуй ещё раз."
 
                 alexText = answer
                 conversation.add("Алекс" to answer)
                 speakAnswer(answer)
 
             } catch (error: CancellationException) {
+                // Отмена запроса кнопкой «Стоп» — это нормальное действие.
                 throw error
             } catch (error: Exception) {
                 mode = AlexMode.READY
                 status = "Не удалось получить ответ"
                 alexText =
-                    "Сейчас я не смог ответить. Проверь подключение к интернету и настройки ИИ."
+                    "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
+            } finally {
+                responseJob = null
             }
         }
     }
@@ -209,6 +230,8 @@ fun AlexVoiceScreen() {
             status = "Распознавание речи ещё не готово"
             return
         }
+
+        ignoreRecognizerErrors = false
 
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
@@ -251,7 +274,8 @@ fun AlexVoiceScreen() {
 
             if (result == TextToSpeech.SUCCESS) {
                 val languageResult =
-                    engineLanguageResult(speechEngine)
+                    speechEngine?.setLanguage(Locale("ru", "RU"))
+                        ?: TextToSpeech.ERROR
 
                 speechReady =
                     languageResult != TextToSpeech.LANG_MISSING_DATA &&
@@ -343,6 +367,8 @@ fun AlexVoiceScreen() {
                     }
 
                     override fun onError(error: Int) {
+                        if (ignoreRecognizerErrors) return
+
                         mode = AlexMode.READY
                         status = when (error) {
                             SpeechRecognizer.ERROR_NO_MATCH ->
@@ -366,6 +392,8 @@ fun AlexVoiceScreen() {
                     }
 
                     override fun onResults(results: Bundle?) {
+                        if (ignoreRecognizerErrors) return
+
                         val spoken = results
                             ?.getStringArrayList(
                                 SpeechRecognizer.RESULTS_RECOGNITION
@@ -443,18 +471,31 @@ fun AlexVoiceScreen() {
                         )
                     }
 
+                    // Вернуться на экран чатов.
                     IconButton(
                         onClick = {
-                            stopSpeaking()
-                            recognizer?.cancel()
-                            mode = AlexMode.READY
-                            status = "Готов к разговору"
+                            stopEverything()
+                            onBack()
                         }
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Остановить",
+                            contentDescription = "Назад к чатам",
                             tint = AlexWhite
+                        )
+                    }
+
+                    // Переключиться в текстовый чат с Алексом.
+                    IconButton(
+                        onClick = {
+                            stopEverything()
+                            onOpenChat()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChatBubble,
+                            contentDescription = "Открыть чат с Алексом",
+                            tint = AlexCyan
                         )
                     }
                 }
@@ -604,8 +645,9 @@ fun AlexVoiceScreen() {
 
                     Spacer(Modifier.width(22.dp))
 
+                    // Полная остановка: микрофон, генерация и голос.
                     IconButton(
-                        onClick = { stopSpeaking() },
+                        onClick = { stopEverything() },
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
@@ -613,7 +655,7 @@ fun AlexVoiceScreen() {
                     ) {
                         Icon(
                             imageVector = Icons.Default.Stop,
-                            contentDescription = "Остановить голос Алекса",
+                            contentDescription = "Полностью остановить Алекса",
                             tint = AlexLavender,
                             modifier = Modifier.size(26.dp)
                         )
@@ -628,10 +670,10 @@ fun AlexVoiceScreen() {
                             "Нажми на микрофон, чтобы завершить запись"
 
                         AlexMode.THINKING ->
-                            "Секунду, я готовлю ответ"
+                            "Алекс готовит ответ — можно остановить кнопкой"
 
                         AlexMode.SPEAKING ->
-                            "Можно остановить мой голос кнопкой справа"
+                            "Кнопка справа останавливает голос"
 
                         AlexMode.READY ->
                             "Нажми на микрофон и говори по-русски"
@@ -643,13 +685,6 @@ fun AlexVoiceScreen() {
             }
         }
     }
-}
-
-private fun engineLanguageResult(
-    engine: TextToSpeech?
-): Int {
-    return engine?.setLanguage(Locale("ru", "RU"))
-        ?: TextToSpeech.ERROR
 }
 
 @Composable
