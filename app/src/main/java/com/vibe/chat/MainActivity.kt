@@ -3,6 +3,7 @@ package com.vibe.chat
 import android.app.Activity
 import android.content.Intent
 import android.provider.Settings
+import android.provider.OpenableColumns
 import android.net.Uri
 import android.util.Base64
 import android.widget.Toast
@@ -37,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -414,7 +416,7 @@ private fun VibeHome(
     var privateChat by remember { mutableStateOf<Pair<String, String>?>(null) }
     var generalChat by remember { mutableStateOf(false) }
     var profileTarget by remember { mutableStateOf<VibeUser?>(null) }
-    var alexChat by remember { mutableStateOf(false) }
+    var alexVoice by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
     val db = remember { FirebaseFirestore.getInstance() }
@@ -422,10 +424,15 @@ private fun VibeHome(
     when {
         showSettings -> VibeAppSettingsScreen(onBack = { showSettings = false })
 
-        tab == VibeTab.Alex && alexChat -> AlexChatScreen(
-            onOpenVoice = { alexChat = false },
+        tab == VibeTab.Alex && alexVoice -> AlexVoiceScreen(
+            onOpenChat = { alexVoice = false },
+            onBack = { alexVoice = false }
+        )
+
+        tab == VibeTab.Alex -> AlexChatScreen(
+            onOpenVoice = { alexVoice = true },
             onBack = {
-                alexChat = false
+                alexVoice = false
                 tab = VibeTab.Chats
             }
         )
@@ -514,12 +521,9 @@ private fun VibeHome(
                             }
                         )
 
-                        VibeTab.Alex -> AlexVoiceScreen(
-                            onOpenChat = { alexChat = true },
-                            onBack = {
-                                alexChat = false
-                                tab = VibeTab.Chats
-                            }
+                        VibeTab.Alex -> AlexChatScreen(
+                            onOpenVoice = { alexVoice = true },
+                            onBack = { tab = VibeTab.Chats }
                         )
 
                         VibeTab.Profile -> VibeMyProfileScreen(
@@ -538,7 +542,7 @@ private fun VibeHome(
                 selected = tab,
                 onSelect = {
                     tab = it
-                    if (it != VibeTab.Alex) alexChat = false
+                    if (it != VibeTab.Alex) alexVoice = false
                 }
             )
         }
@@ -891,140 +895,70 @@ private fun VibeMyProfileScreen(
     }
 }
 
+
 @Composable
 private fun VibeAppSettingsScreen(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember {
-        context.getSharedPreferences(
-            "vibechat_settings",
-            android.content.Context.MODE_PRIVATE
-        )
+        context.getSharedPreferences("vibechat_settings", android.content.Context.MODE_PRIVATE)
     }
-    var soundEnabled by remember {
-        mutableStateOf(prefs.getBoolean("sound_enabled", true))
-    }
-    var vibrationEnabled by remember {
-        mutableStateOf(prefs.getBoolean("vibration_enabled", true))
-    }
-    var notificationsEnabled by remember {
-        mutableStateOf(prefs.getBoolean("notifications_enabled", true))
-    }
+    var soundEnabled by remember { mutableStateOf(prefs.getBoolean("sound_enabled", true)) }
+    var vibrationEnabled by remember { mutableStateOf(prefs.getBoolean("vibration_enabled", true)) }
+    var notificationsEnabled by remember { mutableStateOf(prefs.getBoolean("notifications_enabled", true)) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Назад",
-                    tint = VibeText
-                )
+                Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = VibeText)
             }
             Column {
-                Text(
-                    "Настройки",
-                    color = VibeText,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Настрой VibeChat под себя",
-                    color = VibeMuted,
-                    fontSize = 13.sp
-                )
+                Text("Настройки", color = VibeText, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Настрой VibeChat под себя", color = VibeMuted, fontSize = 13.sp)
             }
         }
-
         Spacer(Modifier.height(14.dp))
-
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(22.dp))
-                .background(VibePanel)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                .background(VibePanel).padding(16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFFFFE7E4)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Palette,
-                        contentDescription = null,
-                        tint = VibePurple
-                    )
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFE7E4)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Palette, contentDescription = null, tint = VibePurple)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text(
-                        "Оформление",
-                        color = VibeText,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Светлая тема · белый, мятный и коралловый",
-                        color = VibeMuted,
-                        fontSize = 12.sp
-                    )
+                    Text("Оформление", color = VibeText, fontWeight = FontWeight.SemiBold)
+                    Text("Светлая тема · белый, мятный и коралловый", color = VibeMuted, fontSize = 12.sp)
                 }
             }
-
-            HorizontalDivider(
-                Modifier.padding(vertical = 14.dp),
-                color = Color(0xFFECEFED)
-            )
-
-            SettingsSwitchRow(
-                "Уведомления",
-                "Сохранённое предпочтение; управление уведомлениями Android доступно ниже",
-                notificationsEnabled
-            ) {
+            HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFECEFED))
+            SettingsSwitchRow("Уведомления", "Сохранённое предпочтение; управление уведомлениями Android доступно ниже", notificationsEnabled) {
                 notificationsEnabled = it
                 prefs.edit().putBoolean("notifications_enabled", it).apply()
             }
-
-            SettingsSwitchRow(
-                "Звук",
-                "Сохраняет выбор для звуковых оповещений VibeChat",
-                soundEnabled
-            ) {
+            SettingsSwitchRow("Звук", "Сохраняет выбор для звуковых оповещений VibeChat", soundEnabled) {
                 soundEnabled = it
                 prefs.edit().putBoolean("sound_enabled", it).apply()
             }
-
-            SettingsSwitchRow(
-                "Вибрация",
-                "Сохраняет выбор для виброоповещений VibeChat",
-                vibrationEnabled
-            ) {
+            SettingsSwitchRow("Вибрация", "Сохраняет выбор для виброоповещений VibeChat", vibrationEnabled) {
                 vibrationEnabled = it
                 prefs.edit().putBoolean("vibration_enabled", it).apply()
             }
         }
-
         Spacer(Modifier.height(12.dp))
-
         VibeActionCard(
             icon = Icons.Default.Notifications,
             title = "Системные уведомления",
             subtitle = "Открыть настройки уведомлений Android",
             onClick = {
-                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                 context.startActivity(intent)
             }
         )
-
         Spacer(Modifier.height(10.dp))
-
         VibeActionCard(
             icon = Icons.Default.Security,
             title = "Приватность и разрешения",
@@ -1036,29 +970,19 @@ private fun VibeAppSettingsScreen(onBack: () -> Unit) {
                 context.startActivity(intent)
             }
         )
-
         Spacer(Modifier.height(10.dp))
-
         VibeActionCard(
             icon = Icons.Default.Info,
             title = "О приложении",
             subtitle = "VibeChat · версия 1.2.0 · вход через Firebase Phone Auth",
             onClick = {
-                Toast.makeText(
-                    context,
-                    "VibeChat 1.2.0",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast.makeText(context, "VibeChat 1.2.0", Toast.LENGTH_SHORT).show()
             }
         )
-
         Spacer(Modifier.height(12.dp))
-
         Text(
             "Важно: звук и вибрация сохраняются как предпочтения. В этой версии отдельный сервис push-уведомлений не реализован, поэтому переключатели не имитируют отправку уведомлений.",
-            color = VibeMuted,
-            fontSize = 12.sp,
-            lineHeight = 17.sp
+            color = VibeMuted, fontSize = 12.sp, lineHeight = 17.sp
         )
     }
 }
@@ -1071,37 +995,15 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 7.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            Modifier
-                .weight(1f)
-                .padding(end = 12.dp)
-        ) {
-            Text(
-                title,
-                color = VibeText,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                subtitle,
-                color = VibeMuted,
-                fontSize = 11.sp,
-                lineHeight = 15.sp
-            )
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, color = VibeText, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = VibeMuted, fontSize = 11.sp, lineHeight = 15.sp)
         }
-
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = VibePurple
-            )
-        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = VibePurple))
     }
 }
 
@@ -1946,22 +1848,83 @@ private fun AlexChatScreen(
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var draft by remember { mutableStateOf("") }
     var thinking by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf("") }
     var responseJob by remember { mutableStateOf<Job?>(null) }
+    var attachmentName by remember { mutableStateOf("") }
+    var attachmentText by remember { mutableStateOf("") }
+    var attachmentNote by remember { mutableStateOf("") }
 
-    val messages = remember {
-        mutableStateListOf<Pair<String, String>>(
-            "Алекс" to "Привет! Я Алекс. Напиши мне что-нибудь — я постараюсь помочь."
-        )
-    }
+    val messages = remember { mutableStateListOf<Pair<String, String>>() }
 
     val model = remember {
         Firebase.ai(
             backend = GenerativeBackend.googleAI()
         ).generativeModel("gemini-3.8-flash")
+    }
+
+    val attachmentPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val loaded = withContext(Dispatchers.IO) {
+                        var displayName = uri.lastPathSegment?.substringAfterLast('/') ?: "Файл"
+                        context.contentResolver.query(
+                            uri,
+                            arrayOf(OpenableColumns.DISPLAY_NAME),
+                            null,
+                            null,
+                            null
+                        )?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                if (index >= 0) displayName = cursor.getString(index) ?: displayName
+                            }
+                        }
+
+                        val mimeType = context.contentResolver.getType(uri).orEmpty()
+                        val lowerName = displayName.lowercase()
+                        val isTextFile = mimeType.startsWith("text/") ||
+                            mimeType == "application/json" ||
+                            mimeType == "application/xml" ||
+                            lowerName.endsWith(".txt") ||
+                            lowerName.endsWith(".md") ||
+                            lowerName.endsWith(".csv") ||
+                            lowerName.endsWith(".json") ||
+                            lowerName.endsWith(".xml") ||
+                            lowerName.endsWith(".log")
+
+                        val content = if (isTextFile) {
+                            context.contentResolver.openInputStream(uri)
+                                ?.bufferedReader()
+                                ?.use { it.readText().take(40000) }
+                                .orEmpty()
+                        } else {
+                            ""
+                        }
+                        Triple(displayName, content, mimeType)
+                    }
+
+                    attachmentName = loaded.first
+                    attachmentText = loaded.second
+                    attachmentNote = if (loaded.second.isNotBlank()) {
+                        "Текстовый файл готов к отправке"
+                    } else {
+                        "Файл выбран. В этой версии Алекс читает текстовые файлы, но не анализирует изображения и другие бинарные документы."
+                    }
+                    errorText = ""
+                } catch (_: Exception) {
+                    attachmentName = uri.lastPathSegment?.substringAfterLast('/') ?: "Файл"
+                    attachmentText = ""
+                    attachmentNote = "Не удалось прочитать файл. Попробуй выбрать другой файл."
+                }
+            }
+        }
     }
 
     fun stopGeneration() {
@@ -1973,32 +1936,56 @@ private fun AlexChatScreen(
 
     fun sendMessage() {
         val question = draft.trim()
+        if ((question.isEmpty() && attachmentName.isBlank()) || thinking) return
 
-        if (question.isEmpty() || thinking) return
+        val fileName = attachmentName
+        val fileText = attachmentText
+        val visibleMessage = buildString {
+            if (question.isNotBlank()) append(question)
+            if (fileName.isNotBlank()) {
+                if (isNotEmpty()) append("\n\n")
+                append("📎 ").append(fileName)
+            }
+        }
 
         draft = ""
+        attachmentName = ""
+        attachmentText = ""
+        attachmentNote = ""
         errorText = ""
-        messages.add("Ты" to question)
+        messages.add("Ты" to visibleMessage)
         thinking = true
 
         val history = messages
             .takeLast(10)
-            .joinToString("\n") { (speaker, text) ->
-                "$speaker: $text"
-            }
+            .joinToString("\n") { (speaker, text) -> "$speaker: $text" }
 
         responseJob = scope.launch {
             try {
+                val attachmentContext = when {
+                    fileName.isBlank() -> ""
+                    fileText.isNotBlank() -> """
+                        Содержимое прикреплённого текстового файла "$fileName":
+                        ${fileText.take(40000)}
+                    """.trimIndent()
+                    else -> """
+                        Пользователь прикрепил файл "$fileName", но его содержимое недоступно для чтения в этой версии.
+                        Не утверждай, что просмотрел этот файл. Попроси пользователя прикрепить текстовый файл
+                        TXT, MD, CSV, JSON или вставить нужный текст в сообщение.
+                    """.trimIndent()
+                }
+
                 val prompt = """
                     Ты — Алекс, ИИ-помощник приложения Vibe Chat.
                     Отвечай дружелюбно, понятно и по существу.
                     По умолчанию говори на русском языке.
                     Учитывай историю переписки.
-                    Не утверждай, что выполнил действия,
-                    которые на самом деле не выполнял.
+                    Не утверждай, что выполнил действия, которые на самом деле не выполнял.
 
                     История:
                     $history
+
+                    $attachmentContext
 
                     Продолжи разговор и ответь на последнее сообщение.
                 """.trimIndent()
@@ -2013,12 +2000,10 @@ private fun AlexChatScreen(
                     ?: "Не получилось подготовить ответ. Попробуй ещё раз."
 
                 messages.add("Алекс" to answer)
-
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
-                errorText =
-                    "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
+            } catch (_: Exception) {
+                errorText = "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
             } finally {
                 thinking = false
                 responseJob = null
@@ -2027,7 +2012,7 @@ private fun AlexChatScreen(
     }
 
     BackHandler {
-        stopGeneration()
+        if (thinking) stopGeneration()
         onBack()
     }
 
@@ -2043,44 +2028,41 @@ private fun AlexChatScreen(
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = {
-                    stopGeneration()
-                    onBack()
-                }
+            IconButton(onClick = {
+                if (thinking) stopGeneration()
+                onBack()
+            }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = VibeText)
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(vibeGradient()),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Назад",
-                    tint = VibeText
+                    Icons.Default.SmartToy,
+                    contentDescription = "Робот Alex AI",
+                    tint = Color.White,
+                    modifier = Modifier.size(25.dp)
                 )
             }
 
+            Spacer(Modifier.width(10.dp))
+
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Алекс AI",
+                    "Alex AI",
                     color = VibeText,
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
                 )
-
                 Text(
-                    if (thinking) "Обдумывает ответ…" else "Текстовый режим",
+                    if (thinking) "Готовит ответ…" else "Твой AI-помощник",
                     color = VibeMuted,
                     fontSize = 12.sp
-                )
-            }
-
-            IconButton(
-                onClick = {
-                    stopGeneration()
-                    onOpenVoice()
-                }
-            ) {
-                Icon(
-                    Icons.Default.Mic,
-                    contentDescription = "Голосовой режим",
-                    tint = VibeCyan
                 )
             }
         }
@@ -2089,53 +2071,96 @@ private fun AlexChatScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth(),
-            contentPadding = PaddingValues(14.dp),
+            contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(messages) { message ->
-                val fromAlex = message.first == "Алекс"
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = if (fromAlex) 0.dp else 35.dp,
-                            end = if (fromAlex) 35.dp else 0.dp
+            if (messages.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 46.dp, bottom = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(116.dp)
+                                .clip(RoundedCornerShape(36.dp))
+                                .background(vibeGradient()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.SmartToy,
+                                contentDescription = "Alex AI",
+                                tint = Color.White,
+                                modifier = Modifier.size(72.dp)
+                            )
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        Text(
+                            "Alex AI",
+                            color = VibeText,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.ExtraBold
                         )
-                        .clip(RoundedCornerShape(17.dp))
-                        .background(
-                            if (fromAlex) {
-                                VibePanel
-                            } else {
-                                Color(0xFFDDF5E8)
-                            }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Привет! Я Алекс — твой помощник.\nС чего начнём?",
+                            color = VibeMuted,
+                            fontSize = 15.sp,
+                            lineHeight = 22.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
-                        .padding(13.dp)
-                ) {
-                    Text(
-                        message.first,
-                        color = if (fromAlex) VibeCyan else VibePurple,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(Modifier.height(5.dp))
-
-                    Text(
-                        message.second,
-                        color = VibeText,
-                        fontSize = 15.sp
-                    )
+                        Spacer(Modifier.height(20.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = VibePurple)
+                            Text("Задай вопрос или прикрепи текстовый файл", color = VibeMuted, fontSize = 13.sp)
+                        }
+                    }
+                }
+            } else {
+                items(messages) { message ->
+                    val fromAlex = message.first == "Алекс"
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = if (fromAlex) 0.dp else 35.dp,
+                                end = if (fromAlex) 35.dp else 0.dp
+                            )
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (fromAlex) VibePanel else Color(0xFFEAF5F0))
+                            .padding(13.dp)
+                    ) {
+                        Text(
+                            if (fromAlex) "Alex AI" else "Ты",
+                            color = if (fromAlex) VibePurple else VibeCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Text(message.second, color = VibeText, fontSize = 15.sp)
+                    }
                 }
             }
 
             if (thinking) {
                 item {
-                    Text(
-                        "Алекс печатает…",
-                        color = VibeMuted,
-                        modifier = Modifier.padding(8.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = VibeCyan,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Alex AI готовит ответ…", color = VibeMuted, fontSize = 13.sp)
+                    }
                 }
             }
 
@@ -2151,46 +2176,91 @@ private fun AlexChatScreen(
             }
         }
 
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(VibePanel)
                 .navigationBarsPadding()
                 .imePadding()
-                .padding(9.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 10.dp, vertical = 9.dp)
         ) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it.take(4000) },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Напиши Алексу…") },
-                enabled = !thinking,
-                maxLines = 4,
-                shape = RoundedCornerShape(18.dp)
-            )
-
-            Spacer(Modifier.width(7.dp))
-
-            IconButton(
-                enabled = if (thinking) true else draft.isNotBlank(),
-                onClick = {
-                    if (thinking) {
-                        stopGeneration()
-                    } else {
-                        sendMessage()
+            if (attachmentName.isNotBlank()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(VibePanel2)
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.AttachFile, contentDescription = null, tint = VibeCyan, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(attachmentName, color = VibeText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (attachmentNote.isNotBlank()) {
+                            Text(attachmentNote, color = VibeMuted, fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    IconButton(onClick = {
+                        attachmentName = ""
+                        attachmentText = ""
+                        attachmentNote = ""
+                    }, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Убрать вложение", tint = VibeMuted, modifier = Modifier.size(18.dp))
                     }
                 }
-            ) {
-                Icon(
-                    if (thinking) Icons.Default.Stop else Icons.Default.Send,
-                    contentDescription = if (thinking) {
-                        "Остановить"
-                    } else {
-                        "Отправить"
-                    },
-                    tint = VibeCyan
+                Spacer(Modifier.height(7.dp))
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    enabled = !thinking,
+                    onClick = { attachmentPicker.launch(arrayOf("*/*")) }
+                ) {
+                    Icon(
+                        Icons.Default.AttachFile,
+                        contentDescription = "Прикрепить файл",
+                        tint = VibeCyan
+                    )
+                }
+
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it.take(4000) },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Сообщение…") },
+                    enabled = !thinking,
+                    maxLines = 4,
+                    shape = RoundedCornerShape(20.dp)
                 )
+
+                Spacer(Modifier.width(4.dp))
+
+                IconButton(
+                    enabled = !thinking,
+                    onClick = {
+                        if (!thinking) onOpenVoice()
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = "Голосовой режим",
+                        tint = VibePurple
+                    )
+                }
+
+                IconButton(
+                    enabled = if (thinking) true else draft.isNotBlank() || attachmentName.isNotBlank(),
+                    onClick = {
+                        if (thinking) stopGeneration() else sendMessage()
+                    }
+                ) {
+                    Icon(
+                        if (thinking) Icons.Default.Stop else Icons.Default.Send,
+                        contentDescription = if (thinking) "Остановить генерацию" else "Отправить сообщение",
+                        tint = if (thinking) VibePurple else VibeCyan
+                    )
+                }
             }
         }
     }
