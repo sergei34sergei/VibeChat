@@ -1,6 +1,8 @@
 package com.vibe.chat
 
 import android.app.Activity
+import android.content.Intent
+import android.provider.Settings
 import android.net.Uri
 import android.util.Base64
 import android.widget.Toast
@@ -14,7 +16,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,21 +63,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // VIBE CHAT — светлая мятно-белая палитра.
-private val VibeBg = Color(0xFFF3FAF6)
+private val VibeBg = Color(0xFFFAFAF9)
 private val VibePanel = Color(0xFFFFFFFF)
-private val VibePanel2 = Color(0xFFE8F4ED)
-private val VibePurple = Color(0xFF208A60)
-private val VibeCyan = Color(0xFF27A879)
-private val VibePink = Color(0xFFE58B9A)
-private val VibeText = Color(0xFF18352A)
-private val VibeMuted = Color(0xFF718078)
-private val VibeGreen = Color(0xFF239967)
+private val VibePanel2 = Color(0xFFF4F6F4)
+private val VibePurple = Color(0xFFE85B58) // фирменный коралловый
+private val VibeCyan = Color(0xFF75BDA7) // мягкий мятный, только для вторичных деталей
+private val VibePink = Color(0xFFF2A19A)
+private val VibeText = Color(0xFF252B2A)
+private val VibeMuted = Color(0xFF7A8581)
+private val VibeGreen = Color(0xFF75BDA7)
 
 private fun vibeGradient() = Brush.linearGradient(
     listOf(
-        Color(0xFF75D6A6),
-        Color(0xFF35B985),
-        Color(0xFF16865D)
+        Color(0xFFFF8178),
+        Color(0xFFE85B58),
+        Color(0xFFD94C50)
     )
 )
 
@@ -94,10 +99,10 @@ class MainActivity : ComponentActivity() {
                     onSurface = VibeText,
                     surfaceVariant = VibePanel2,
                     onSurfaceVariant = VibeMuted,
-                    primaryContainer = Color(0xFFD9F3E4),
-                    onPrimaryContainer = Color(0xFF174C35),
-                    secondaryContainer = Color(0xFFDDF5E8),
-                    onSecondaryContainer = Color(0xFF174C35),
+                    primaryContainer = Color(0xFFFFE7E4),
+                    onPrimaryContainer = Color(0xFF7C2929),
+                    secondaryContainer = Color(0xFFEAF5F0),
+                    onSecondaryContainer = Color(0xFF294A40),
                     error = Color(0xFFB94357)
                 )
             ) {
@@ -197,9 +202,9 @@ private fun VibeLogin() {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFFE2F7EA),
+                        Color(0xFFFFF0EE),
                         VibeBg,
-                        Color(0xFFF4FAF6)
+                        Color(0xFFFAFAF9)
                     )
                 )
             )
@@ -209,16 +214,15 @@ private fun VibeLogin() {
     ) {
         Box(
             modifier = Modifier
-                .size(86.dp)
-                .clip(RoundedCornerShape(27.dp))
-                .background(vibeGradient()),
+                .size(104.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color(0xFFFFF0EE)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                Icons.Default.Forum,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(42.dp)
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = "Робот VibeChat",
+                modifier = Modifier.size(96.dp)
             )
         }
 
@@ -397,7 +401,6 @@ private enum class VibeTab(val label: String) {
     Chats("Чаты"),
     People("Люди"),
     Alex("Алекс"),
-    Photos("Фото"),
     Profile("Профиль")
 }
 
@@ -412,10 +415,13 @@ private fun VibeHome(
     var generalChat by remember { mutableStateOf(false) }
     var profileTarget by remember { mutableStateOf<VibeUser?>(null) }
     var alexChat by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     val db = remember { FirebaseFirestore.getInstance() }
 
     when {
+        showSettings -> VibeAppSettingsScreen(onBack = { showSettings = false })
+
         tab == VibeTab.Alex && alexChat -> AlexChatScreen(
             onOpenVoice = { alexChat = false },
             onBack = {
@@ -516,14 +522,13 @@ private fun VibeHome(
                             }
                         )
 
-                        VibeTab.Photos -> VibePhotoStudioScreen()
-
                         VibeTab.Profile -> VibeMyProfileScreen(
                             db = db,
                             userId = userId,
                             phone = phone,
                             onSignOut = onSignOut,
-                            onOpenProfile = { profileTarget = it }
+                            onOpenProfile = { profileTarget = it },
+                            onOpenSettings = { showSettings = true }
                         )
                     }
                 }
@@ -561,7 +566,7 @@ private fun VibeHeader(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Default.Forum,
+                Icons.Default.SmartToy,
                 contentDescription = null,
                 tint = Color.White
             )
@@ -582,7 +587,6 @@ private fun VibeHeader(
                     VibeTab.Chats -> "Твои разговоры"
                     VibeTab.People -> "Найди своих людей"
                     VibeTab.Alex -> "Твой AI-помощник"
-                    VibeTab.Photos -> "Идеи для творчества"
                     VibeTab.Profile -> "Твой аккаунт"
                 },
                 color = VibeMuted,
@@ -610,7 +614,6 @@ private fun VibeBottomBar(
         VibeTab.Chats to Icons.Default.ChatBubble,
         VibeTab.People to Icons.Default.People,
         VibeTab.Alex to Icons.Default.AutoAwesome,
-        VibeTab.Photos to Icons.Default.Palette,
         VibeTab.Profile to Icons.Default.Person
     )
 
@@ -644,7 +647,7 @@ private fun VibeBottomBar(
                 Icon(
                     icon,
                     contentDescription = item.label,
-                    tint = if (active) VibeCyan else VibeMuted,
+                    tint = if (active) VibePurple else VibeMuted,
                     modifier = Modifier.size(21.dp)
                 )
 
@@ -773,8 +776,10 @@ private fun VibeMyProfileScreen(
     userId: String,
     phone: String,
     onSignOut: () -> Unit,
-    onOpenProfile: (VibeUser) -> Unit
+    onOpenProfile: (VibeUser) -> Unit,
+    onOpenSettings: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var user by remember {
         mutableStateOf(
             VibeUser(userId, "Мой профиль", phone, "", "")
@@ -801,6 +806,7 @@ private fun VibeMyProfileScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -846,10 +852,24 @@ private fun VibeMyProfileScreen(
         Spacer(Modifier.height(10.dp))
 
         VibeActionCard(
+            icon = Icons.Default.Settings,
+            title = "Настройки приложения",
+            subtitle = "Оформление, звук, уведомления и приватность",
+            onClick = onOpenSettings
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        VibeActionCard(
             icon = Icons.Default.Security,
             title = "Аккаунт защищён",
             subtitle = "Вход выполняется через Firebase",
-            onClick = {}
+            onClick = {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.parse("package:" + context.packageName)
+                }
+                context.startActivity(intent)
+            }
         )
 
         Spacer(Modifier.weight(1f))
@@ -868,6 +888,118 @@ private fun VibeMyProfileScreen(
             Spacer(Modifier.width(8.dp))
             Text("Выйти из аккаунта")
         }
+    }
+}
+
+
+@Composable
+private fun VibeAppSettingsScreen(onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences("vibechat_settings", android.content.Context.MODE_PRIVATE)
+    }
+    var soundEnabled by remember { mutableStateOf(prefs.getBoolean("sound_enabled", true)) }
+    var vibrationEnabled by remember { mutableStateOf(prefs.getBoolean("vibration_enabled", true)) }
+    var notificationsEnabled by remember { mutableStateOf(prefs.getBoolean("notifications_enabled", true)) }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = VibeText)
+            }
+            Column {
+                Text("Настройки", color = VibeText, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Настрой VibeChat под себя", color = VibeMuted, fontSize = 13.sp)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+                .background(VibePanel).padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFE7E4)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Palette, contentDescription = null, tint = VibePurple)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Оформление", color = VibeText, fontWeight = FontWeight.SemiBold)
+                    Text("Светлая тема · белый, мятный и коралловый", color = VibeMuted, fontSize = 12.sp)
+                }
+            }
+            HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFECEFED))
+            SettingsSwitchRow("Уведомления", "Сохранённое предпочтение; управление уведомлениями Android доступно ниже", notificationsEnabled) {
+                notificationsEnabled = it
+                prefs.edit().putBoolean("notifications_enabled", it).apply()
+            }
+            SettingsSwitchRow("Звук", "Сохраняет выбор для звуковых оповещений VibeChat", soundEnabled) {
+                soundEnabled = it
+                prefs.edit().putBoolean("sound_enabled", it).apply()
+            }
+            SettingsSwitchRow("Вибрация", "Сохраняет выбор для виброоповещений VibeChat", vibrationEnabled) {
+                vibrationEnabled = it
+                prefs.edit().putBoolean("vibration_enabled", it).apply()
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        VibeActionCard(
+            icon = Icons.Default.Notifications,
+            title = "Системные уведомления",
+            subtitle = "Открыть настройки уведомлений Android",
+            onClick = {
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                context.startActivity(intent)
+            }
+        )
+        Spacer(Modifier.height(10.dp))
+        VibeActionCard(
+            icon = Icons.Default.Security,
+            title = "Приватность и разрешения",
+            subtitle = "Управление разрешениями приложения в Android",
+            onClick = {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.parse("package:" + context.packageName)
+                }
+                context.startActivity(intent)
+            }
+        )
+        Spacer(Modifier.height(10.dp))
+        VibeActionCard(
+            icon = Icons.Default.Info,
+            title = "О приложении",
+            subtitle = "VibeChat · версия 1.2.0 · вход через Firebase Phone Auth",
+            onClick = {
+                Toast.makeText(context, "VibeChat 1.2.0", Toast.LENGTH_SHORT).show()
+            }
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Важно: звук и вибрация сохраняются как предпочтения. В этой версии отдельный сервис push-уведомлений не реализован, поэтому переключатели не имитируют отправку уведомлений.",
+            color = VibeMuted, fontSize = 12.sp, lineHeight = 17.sp
+        )
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title, color = VibeText, fontWeight = FontWeight.Medium)
+            Text(subtitle, color = VibeMuted, fontSize = 11.sp, lineHeight = 15.sp)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = VibePurple))
     }
 }
 
@@ -1961,3 +2093,26 @@ private fun AlexChatScreen(
         }
     }
 }
+t = it.take(4000) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Напиши Алексу…") },
+                enabled = !thinking,
+                maxLines = 4,
+                shape = RoundedCornerShape(18.dp)
+            )
+
+            Spacer(Modifier.width(7.dp))
+
+            IconButton(
+                enabled = if (thinking) true else draft.isNotBlank(),
+                onClick = {
+                    if (thinking) {
+                        stopGeneration()
+                    } else {
+                        sendMessage()
+                    }
+                }
+            ) {
+                Icon(
+                    if (thinking) Icons.Default.Stop else Icons.Default.Send,
+                    contentDescription = if (thinking
