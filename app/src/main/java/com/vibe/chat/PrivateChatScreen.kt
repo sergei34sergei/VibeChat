@@ -53,6 +53,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 
 private val ChatBackground = Color(0xFF10121B)
 private val ChatSurface = Color(0xFF191C29)
@@ -63,7 +64,7 @@ private val ChatCoral = Color(0xFFFF8B91)
 private val ChatText = Color(0xFFF1F3FF)
 private val ChatMuted = Color(0xFF969DB6)
 
-private fun privateChatGradient() = Brush.linearGradient(
+private fun privateChatGradient(): Brush = Brush.linearGradient(
     colors = listOf(
         Color(0xFF7155DE),
         Color(0xFF407FD9),
@@ -92,15 +93,27 @@ fun PrivateChatScreen(
         listOf(myId, otherUserId).sorted().joinToString("_")
     }
 
-    var myName by rememberSaveable { mutableStateOf("Пользователь") }
-    var draft by rememberSaveable { mutableStateOf("") }
-    var showEmojiPicker by rememberSaveable { mutableStateOf(false) }
+    var myName by rememberSaveable {
+        mutableStateOf("Пользователь")
+    }
+    var draft by rememberSaveable {
+        mutableStateOf("")
+    }
+    var showEmojiPicker by rememberSaveable {
+        mutableStateOf(false)
+    }
     var messages by remember {
         mutableStateOf<List<PrivateChatMessage>>(emptyList())
     }
-    var loading by remember { mutableStateOf(true) }
-    var sending by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var loading by remember {
+        mutableStateOf(true)
+    }
+    var sending by remember {
+        mutableStateOf(false)
+    }
+    var errorMessage by remember {
+        mutableStateOf("")
+    }
 
     LaunchedEffect(myId) {
         if (myId.isNotBlank()) {
@@ -128,7 +141,7 @@ fun PrivateChatScreen(
                     "participantIds" to listOf(myId, otherUserId),
                     "updatedAt" to FieldValue.serverTimestamp()
                 ),
-                com.google.firebase.firestore.SetOptions.merge()
+                SetOptions.merge()
             ).addOnFailureListener {
                 errorMessage = "Не удалось подготовить диалог."
             }
@@ -191,7 +204,7 @@ fun PrivateChatScreen(
                         "lastSenderId" to myId,
                         "updatedAt" to FieldValue.serverTimestamp()
                     ),
-                    com.google.firebase.firestore.SetOptions.merge()
+                    SetOptions.merge()
                 )
 
                 draft = ""
@@ -212,8 +225,8 @@ fun PrivateChatScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
                         Color(0xFF111522),
                         ChatBackground,
                         Color(0xFF151326)
@@ -230,7 +243,7 @@ fun PrivateChatScreen(
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    Icons.Default.ArrowBack,
+                    imageVector = Icons.Default.ArrowBack,
                     contentDescription = "Назад",
                     tint = ChatText
                 )
@@ -240,7 +253,7 @@ fun PrivateChatScreen(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(privateChatGradient())
+                    .background(brush = privateChatGradient())
                     .border(
                         width = 1.dp,
                         color = ChatMint.copy(alpha = 0.65f),
@@ -312,16 +325,20 @@ fun PrivateChatScreen(
                             modifier = Modifier
                                 .size(76.dp)
                                 .clip(RoundedCornerShape(25.dp))
-                                .background(privateChatGradient()),
+                                .background(brush = privateChatGradient()),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("✦", fontSize = 36.sp, color = Color.White)
+                            Text(
+                                text = "✦",
+                                fontSize = 36.sp,
+                                color = Color.White
+                            )
                         }
 
                         Spacer(Modifier.height(16.dp))
 
                         Text(
-                            "Ваш диалог начинается здесь",
+                            text = "Ваш диалог начинается здесь",
                             color = ChatText,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold
@@ -330,7 +347,7 @@ fun PrivateChatScreen(
                         Spacer(Modifier.height(7.dp))
 
                         Text(
-                            "Отправь первое сообщение",
+                            text = "Отправь первое сообщение",
                             color = ChatMuted,
                             fontSize = 13.sp
                         )
@@ -368,26 +385,32 @@ fun PrivateChatScreen(
                                             RoundedCornerShape(
                                                 topStart = 19.dp,
                                                 topEnd = 19.dp,
-                                                bottomStart = if (mine) 19.dp else 5.dp,
-                                                bottomEnd = if (mine) 5.dp else 19.dp
+                                                bottomStart = if (mine) {
+                                                    19.dp
+                                                } else {
+                                                    5.dp
+                                                },
+                                                bottomEnd = if (mine) {
+                                                    5.dp
+                                                } else {
+                                                    19.dp
+                                                }
                                             )
                                         )
                                         .background(
-                                            if (mine) {
-                                                Brush.linearGradient(
+                                            brush = Brush.linearGradient(
+                                                colors = if (mine) {
                                                     listOf(
                                                         Color(0xFF5542A4),
                                                         Color(0xFF37366B)
                                                     )
-                                                )
-                                            } else {
-                                                Brush.linearGradient(
+                                                } else {
                                                     listOf(
                                                         ChatSurfaceLight,
                                                         ChatSurface
                                                     )
-                                                )
-                                            }
+                                                }
+                                            )
                                         )
                                         .padding(
                                             horizontal = 14.dp,
@@ -396,7 +419,7 @@ fun PrivateChatScreen(
                                 ) {
                                     if (!mine) {
                                         Text(
-                                            message.senderName,
+                                            text = message.senderName,
                                             color = ChatMint,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold
@@ -406,7 +429,7 @@ fun PrivateChatScreen(
                                     }
 
                                     Text(
-                                        message.text,
+                                        text = message.text,
                                         color = ChatText,
                                         fontSize = 15.sp,
                                         lineHeight = 21.sp
@@ -416,9 +439,12 @@ fun PrivateChatScreen(
 
                                     Text(
                                         text = if (
-                                            mine &&
-                                            message.createdAt == null
-                                        ) "Отправляется…" else "",
+                                            mine && message.createdAt == null
+                                        ) {
+                                            "Отправляется…"
+                                        } else {
+                                            ""
+                                        },
                                         color = ChatMuted,
                                         fontSize = 10.sp
                                     )
@@ -456,7 +482,7 @@ fun PrivateChatScreen(
                     .padding(10.dp)
             ) {
                 Text(
-                    "Эмодзи",
+                    text = "Эмодзи",
                     color = ChatMuted,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(
@@ -503,7 +529,7 @@ fun PrivateChatScreen(
                 }
             ) {
                 Icon(
-                    Icons.Default.EmojiEmotions,
+                    imageVector = Icons.Default.EmojiEmotions,
                     contentDescription = "Эмодзи",
                     tint = if (showEmojiPicker) ChatMint else ChatViolet
                 )
@@ -526,7 +552,7 @@ fun PrivateChatScreen(
             ) {
                 if (draft.isEmpty()) {
                     Text(
-                        "Написать сообщение…",
+                        text = "Написать сообщение…",
                         color = ChatMuted,
                         fontSize = 14.sp
                     )
@@ -555,10 +581,15 @@ fun PrivateChatScreen(
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(
-                        if (draft.isNotBlank() && !sending) {
+                        brush = if (draft.isNotBlank() && !sending) {
                             privateChatGradient()
                         } else {
-                            ChatSurfaceLight
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    ChatSurfaceLight,
+                                    ChatSurfaceLight
+                                )
+                            )
                         }
                     )
             ) {
@@ -570,7 +601,7 @@ fun PrivateChatScreen(
                     )
                 } else {
                     Icon(
-                        Icons.Default.Send,
+                        imageVector = Icons.Default.Send,
                         contentDescription = "Отправить",
                         tint = if (draft.isNotBlank()) {
                             Color.White
