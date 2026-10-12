@@ -891,70 +891,140 @@ private fun VibeMyProfileScreen(
     }
 }
 
-
 @Composable
 private fun VibeAppSettingsScreen(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember {
-        context.getSharedPreferences("vibechat_settings", android.content.Context.MODE_PRIVATE)
+        context.getSharedPreferences(
+            "vibechat_settings",
+            android.content.Context.MODE_PRIVATE
+        )
     }
-    var soundEnabled by remember { mutableStateOf(prefs.getBoolean("sound_enabled", true)) }
-    var vibrationEnabled by remember { mutableStateOf(prefs.getBoolean("vibration_enabled", true)) }
-    var notificationsEnabled by remember { mutableStateOf(prefs.getBoolean("notifications_enabled", true)) }
+    var soundEnabled by remember {
+        mutableStateOf(prefs.getBoolean("sound_enabled", true))
+    }
+    var vibrationEnabled by remember {
+        mutableStateOf(prefs.getBoolean("vibration_enabled", true))
+    }
+    var notificationsEnabled by remember {
+        mutableStateOf(prefs.getBoolean("notifications_enabled", true))
+    }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = VibeText)
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = "Назад",
+                    tint = VibeText
+                )
             }
             Column {
-                Text("Настройки", color = VibeText, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("Настрой VibeChat под себя", color = VibeMuted, fontSize = 13.sp)
+                Text(
+                    "Настройки",
+                    color = VibeText,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Настрой VibeChat под себя",
+                    color = VibeMuted,
+                    fontSize = 13.sp
+                )
             }
         }
+
         Spacer(Modifier.height(14.dp))
+
         Column(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
-                .background(VibePanel).padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(VibePanel)
+                .padding(16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFE7E4)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Palette, contentDescription = null, tint = VibePurple)
+                Box(
+                    Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFFFE7E4)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = null,
+                        tint = VibePurple
+                    )
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("Оформление", color = VibeText, fontWeight = FontWeight.SemiBold)
-                    Text("Светлая тема · белый, мятный и коралловый", color = VibeMuted, fontSize = 12.sp)
+                    Text(
+                        "Оформление",
+                        color = VibeText,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Светлая тема · белый, мятный и коралловый",
+                        color = VibeMuted,
+                        fontSize = 12.sp
+                    )
                 }
             }
-            HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFECEFED))
-            SettingsSwitchRow("Уведомления", "Сохранённое предпочтение; управление уведомлениями Android доступно ниже", notificationsEnabled) {
+
+            HorizontalDivider(
+                Modifier.padding(vertical = 14.dp),
+                color = Color(0xFFECEFED)
+            )
+
+            SettingsSwitchRow(
+                "Уведомления",
+                "Сохранённое предпочтение; управление уведомлениями Android доступно ниже",
+                notificationsEnabled
+            ) {
                 notificationsEnabled = it
                 prefs.edit().putBoolean("notifications_enabled", it).apply()
             }
-            SettingsSwitchRow("Звук", "Сохраняет выбор для звуковых оповещений VibeChat", soundEnabled) {
+
+            SettingsSwitchRow(
+                "Звук",
+                "Сохраняет выбор для звуковых оповещений VibeChat",
+                soundEnabled
+            ) {
                 soundEnabled = it
                 prefs.edit().putBoolean("sound_enabled", it).apply()
             }
-            SettingsSwitchRow("Вибрация", "Сохраняет выбор для виброоповещений VibeChat", vibrationEnabled) {
+
+            SettingsSwitchRow(
+                "Вибрация",
+                "Сохраняет выбор для виброоповещений VibeChat",
+                vibrationEnabled
+            ) {
                 vibrationEnabled = it
                 prefs.edit().putBoolean("vibration_enabled", it).apply()
             }
         }
+
         Spacer(Modifier.height(12.dp))
+
         VibeActionCard(
             icon = Icons.Default.Notifications,
             title = "Системные уведомления",
             subtitle = "Открыть настройки уведомлений Android",
             onClick = {
-                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                 context.startActivity(intent)
             }
         )
+
         Spacer(Modifier.height(10.dp))
+
         VibeActionCard(
             icon = Icons.Default.Security,
             title = "Приватность и разрешения",
@@ -966,19 +1036,29 @@ private fun VibeAppSettingsScreen(onBack: () -> Unit) {
                 context.startActivity(intent)
             }
         )
+
         Spacer(Modifier.height(10.dp))
+
         VibeActionCard(
             icon = Icons.Default.Info,
             title = "О приложении",
             subtitle = "VibeChat · версия 1.2.0 · вход через Firebase Phone Auth",
             onClick = {
-                Toast.makeText(context, "VibeChat 1.2.0", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "VibeChat 1.2.0",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         )
+
         Spacer(Modifier.height(12.dp))
+
         Text(
             "Важно: звук и вибрация сохраняются как предпочтения. В этой версии отдельный сервис push-уведомлений не реализован, поэтому переключатели не имитируют отправку уведомлений.",
-            color = VibeMuted, fontSize = 12.sp, lineHeight = 17.sp
+            color = VibeMuted,
+            fontSize = 12.sp,
+            lineHeight = 17.sp
         )
     }
 }
@@ -991,15 +1071,37 @@ private fun SettingsSwitchRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, color = VibeText, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = VibeMuted, fontSize = 11.sp, lineHeight = 15.sp)
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(end = 12.dp)
+        ) {
+            Text(
+                title,
+                color = VibeText,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                subtitle,
+                color = VibeMuted,
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = VibePurple))
+
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = VibePurple
+            )
+        )
     }
 }
 
@@ -2093,26 +2195,3 @@ private fun AlexChatScreen(
         }
     }
 }
-t = it.take(4000) },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Напиши Алексу…") },
-                enabled = !thinking,
-                maxLines = 4,
-                shape = RoundedCornerShape(18.dp)
-            )
-
-            Spacer(Modifier.width(7.dp))
-
-            IconButton(
-                enabled = if (thinking) true else draft.isNotBlank(),
-                onClick = {
-                    if (thinking) {
-                        stopGeneration()
-                    } else {
-                        sendMessage()
-                    }
-                }
-            ) {
-                Icon(
-                    if (thinking) Icons.Default.Stop else Icons.Default.Send,
-                    contentDescription = if (thinking
