@@ -1,9 +1,8 @@
+
 package com.vibe.chat
 
 import android.app.Activity
-import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
 import android.util.Base64
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -14,6 +13,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseException
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
@@ -63,7 +64,7 @@ private fun vibeGradient() = Brush.linearGradient(
 )
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
 
@@ -195,11 +196,7 @@ private fun VibeLogin() {
             fontWeight = FontWeight.ExtraBold,
             color = VibeText
         )
-        Text(
-            "Твой мир общения",
-            color = VibeCyan,
-            fontSize = 15.sp
-        )
+        Text("Твой мир общения", color = VibeCyan, fontSize = 15.sp)
 
         Spacer(Modifier.height(32.dp))
 
@@ -229,9 +226,7 @@ private fun VibeLogin() {
                 label = { Text("Номер с кодом страны") },
                 placeholder = { Text("+49…") },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone
-                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 enabled = verificationId == null,
                 shape = RoundedCornerShape(16.dp)
             )
@@ -244,9 +239,7 @@ private fun VibeLogin() {
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Код из SMS") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number
-                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(16.dp)
                 )
             }
@@ -280,8 +273,7 @@ private fun VibeLogin() {
                             message = "Введи шестизначный код из SMS"
                         } else {
                             loading = true
-                            val credential =
-                                PhoneAuthProvider.getCredential(id, code)
+                            val credential = PhoneAuthProvider.getCredential(id, code)
                             auth.signInWithCredential(credential)
                                 .addOnCompleteListener {
                                     loading = false
@@ -293,14 +285,10 @@ private fun VibeLogin() {
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
+                modifier = Modifier.fillMaxWidth().height(54.dp),
                 enabled = !loading,
                 shape = RoundedCornerShape(17.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = VibePurple
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = VibePurple)
             ) {
                 if (loading) {
                     CircularProgressIndicator(
@@ -409,24 +397,21 @@ private fun VibeHome(
                 }
             )
 
+            // ИСПРАВЛЕНИЕ: вес назначен самому AnimatedContent,
+            // поэтому нижняя панель остаётся видимой внизу экрана.
             AnimatedContent(
                 targetState = tab,
-                transitionSpec = {
-                    fadeIn() togetherWith fadeOut()
-                },
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
                 label = "vibe-tab"
             ) { selected ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {
+                Box(Modifier.fillMaxSize()) {
                     when (selected) {
                         VibeTab.Chats -> VibeChatsListScreen(
                             myId = userId,
-                            onOpenChat = { id, name ->
-                                privateChat = id to name
-                            },
+                            onOpenChat = { id, name -> privateChat = id to name },
                             onOpenGeneralChat = { generalChat = true },
                             onOpenUsers = { tab = VibeTab.People }
                         )
@@ -435,9 +420,7 @@ private fun VibeHome(
                             db = db,
                             myId = userId,
                             onOpenProfile = { profileTarget = it },
-                            onOpenChat = { id, name ->
-                                privateChat = id to name
-                            }
+                            onOpenChat = { id, name -> privateChat = id to name }
                         )
 
                         VibeTab.Alex -> AlexVoiceScreen()
@@ -483,11 +466,7 @@ private fun VibeHeader(
                 .background(vibeGradient()),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                Icons.Default.Forum,
-                contentDescription = null,
-                tint = Color.White
-            )
+            Icon(Icons.Default.Forum, contentDescription = null, tint = Color.White)
         }
 
         Spacer(Modifier.width(12.dp))
@@ -608,9 +587,7 @@ private fun VibePeopleScreen(
         onDispose { registration.remove() }
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp)
-    ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         VibeSectionTitle("Люди", "Знакомься и общайся")
 
         if (users.isEmpty()) {
@@ -637,11 +614,7 @@ private fun VibePeopleScreen(
                         VibeAvatar(user.avatarBase64, user.name)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                user.name,
-                                color = VibeText,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Text(user.name, color = VibeText, fontWeight = FontWeight.Bold)
                             Text(
                                 user.bio.ifBlank { user.phone },
                                 color = VibeMuted,
@@ -650,14 +623,8 @@ private fun VibePeopleScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        IconButton(
-                            onClick = { onOpenChat(user.id, user.name) }
-                        ) {
-                            Icon(
-                                Icons.Default.Chat,
-                                contentDescription = "Написать",
-                                tint = VibeCyan
-                            )
+                        IconButton(onClick = { onOpenChat(user.id, user.name) }) {
+                            Icon(Icons.Default.Chat, contentDescription = "Написать", tint = VibeCyan)
                         }
                     }
                 }
@@ -675,9 +642,7 @@ private fun VibeMyProfileScreen(
     onOpenProfile: (VibeUser) -> Unit
 ) {
     var user by remember {
-        mutableStateOf(
-            VibeUser(userId, "Мой профиль", phone, "", "")
-        )
+        mutableStateOf(VibeUser(userId, "Мой профиль", phone, "", ""))
     }
 
     DisposableEffect(userId) {
@@ -697,32 +662,21 @@ private fun VibeMyProfileScreen(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
+        modifier = Modifier.fillMaxSize().padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         VibeSectionTitle("Мой профиль", "Настрой Vibe под себя")
-
         Spacer(Modifier.height(20.dp))
 
         Box(
-            modifier = Modifier
-                .size(112.dp)
-                .clip(CircleShape)
-                .background(vibeGradient()),
+            modifier = Modifier.size(112.dp).clip(CircleShape).background(vibeGradient()),
             contentAlignment = Alignment.Center
         ) {
             VibeAvatar(user.avatarBase64, user.name, size = 108)
         }
 
         Spacer(Modifier.height(15.dp))
-        Text(
-            user.name,
-            color = VibeText,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Text(user.name, color = VibeText, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(user.phone, color = VibeMuted)
 
         if (user.bio.isNotBlank()) {
@@ -754,9 +708,7 @@ private fun VibeMyProfileScreen(
             onClick = onSignOut,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = VibePink
-            )
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = VibePink)
         ) {
             Icon(Icons.Default.Logout, contentDescription = null)
             Spacer(Modifier.width(8.dp))
@@ -787,25 +739,15 @@ private fun VibeProfile(
                     avatar = Base64.encodeToString(bytes, Base64.NO_WRAP)
                 }
             }.onFailure {
-                Toast.makeText(
-                    context,
-                    "Не удалось загрузить изображение",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast.makeText(context, "Не удалось загрузить изображение", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(20.dp)
-    ) {
+    Column(Modifier.fillMaxSize().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Назад",
-                    tint = VibeText
-                )
+                Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = VibeText)
             }
             Text(
                 if (isMe) "Редактирование" else "Профиль",
@@ -817,10 +759,7 @@ private fun VibeProfile(
 
         Spacer(Modifier.height(25.dp))
 
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             VibeAvatar(avatar, name, size = 104)
             if (isMe) {
                 TextButton(onClick = { imagePicker.launch("image/*") }) {
@@ -865,19 +804,11 @@ private fun VibeProfile(
                 Text("Сохранить изменения")
             }
         } else {
-            Text(
-                name,
-                color = VibeText,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(name, color = VibeText, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(user.phone, color = VibeMuted)
             Spacer(Modifier.height(12.dp))
-            Text(
-                bio.ifBlank { "Пользователь Vibe Chat" },
-                color = VibeMuted
-            )
+            Text(bio.ifBlank { "Пользователь Vibe Chat" }, color = VibeMuted)
         }
     }
 }
@@ -893,27 +824,20 @@ private fun VibeAvatar(
             if (avatarBase64.isBlank()) null
             else {
                 val bytes = Base64.decode(avatarBase64, Base64.DEFAULT)
-                android.graphics.BitmapFactory.decodeByteArray(
-                    bytes, 0, bytes.size
-                )
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             }
         }.getOrNull()
     }
 
     if (bitmap != null) {
-        androidx.compose.foundation.Image(
+        Image(
             bitmap = bitmap.asImageBitmap(),
             contentDescription = name,
-            modifier = Modifier
-                .size(size.dp)
-                .clip(CircleShape)
+            modifier = Modifier.size(size.dp).clip(CircleShape)
         )
     } else {
         Box(
-            modifier = Modifier
-                .size(size.dp)
-                .clip(CircleShape)
-                .background(vibeGradient()),
+            modifier = Modifier.size(size.dp).clip(CircleShape).background(vibeGradient()),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -943,8 +867,7 @@ private fun VibeChatsListScreen(
                 chats = snapshot?.documents
                     ?.filter { it.id != "general" }
                     ?.map { doc ->
-                        val participants =
-                            doc.get("participantIds") as? List<*>
+                        val participants = doc.get("participantIds") as? List<*>
                         val otherId = participants
                             ?.filterIsInstance<String>()
                             ?.firstOrNull { it != myId }
@@ -955,9 +878,7 @@ private fun VibeChatsListScreen(
         onDispose { registration.remove() }
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp)
-    ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         VibeSectionTitle("Твои чаты", "Общайся без границ")
 
         VibeActionCard(
@@ -980,13 +901,7 @@ private fun VibeChatsListScreen(
 
         Spacer(Modifier.height(18.dp))
 
-        Text(
-            "ЛИЧНЫЕ ДИАЛОГИ",
-            color = VibeMuted,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-
+        Text("ЛИЧНЫЕ ДИАЛОГИ", color = VibeMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(10.dp))
 
         if (chats.isEmpty()) {
@@ -1001,12 +916,9 @@ private fun VibeChatsListScreen(
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
                 items(chats, key = { it.first }) { (otherId, _) ->
-                    var displayName by remember(otherId) {
-                        mutableStateOf("Загрузка профиля…")
-                    }
+                    var displayName by remember(otherId) { mutableStateOf("Загрузка профиля…") }
                     DisposableEffect(otherId) {
-                        val registration = db.collection("users")
-                            .document(otherId)
+                        val registration = db.collection("users").document(otherId)
                             .addSnapshotListener { doc, _ ->
                                 displayName = doc?.getString("name")
                                     ?: doc?.getString("phone")
@@ -1052,8 +964,7 @@ private fun VibeGeneralChatReplacement(
     }
 
     DisposableEffect(Unit) {
-        val registration = db.collection("chats")
-            .document("general")
+        val registration = db.collection("chats").document("general")
             .collection("messages")
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limit(150)
@@ -1073,26 +984,14 @@ private fun VibeGeneralChatReplacement(
 
     Column(Modifier.fillMaxSize().background(VibeBg)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(VibePanel)
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth().background(VibePanel).padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Назад",
-                    tint = VibeText
-                )
+                Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = VibeText)
             }
             Column(Modifier.weight(1f)) {
-                Text(
-                    "Общий чат",
-                    color = VibeText,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 19.sp
-                )
+                Text("Общий чат", color = VibeText, fontWeight = FontWeight.Bold, fontSize = 19.sp)
                 Text("Сообщество Vibe", color = VibeCyan, fontSize = 12.sp)
             }
             Icon(Icons.Default.Public, contentDescription = null, tint = VibeCyan)
@@ -1108,10 +1007,7 @@ private fun VibeGeneralChatReplacement(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            start = if (mine) 42.dp else 0.dp,
-                            end = if (mine) 0.dp else 42.dp
-                        )
+                        .padding(start = if (mine) 42.dp else 0.dp, end = if (mine) 0.dp else 42.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(if (mine) VibePanel2 else VibePanel)
                         .padding(12.dp)
@@ -1129,11 +1025,8 @@ private fun VibeGeneralChatReplacement(
         }
 
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(VibePanel)
-                .navigationBarsPadding()
-                .padding(10.dp),
+            modifier = Modifier.fillMaxWidth().background(VibePanel)
+                .navigationBarsPadding().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
@@ -1165,17 +1058,11 @@ private fun VibeGeneralChatReplacement(
                                 draft = ""
                                 sending = false
                             }
-                            .addOnFailureListener {
-                                sending = false
-                            }
+                            .addOnFailureListener { sending = false }
                     }
                 }
             ) {
-                Icon(
-                    Icons.Default.Send,
-                    contentDescription = "Отправить",
-                    tint = VibeCyan
-                )
+                Icon(Icons.Default.Send, contentDescription = "Отправить", tint = VibeCyan)
             }
         }
     }
@@ -1186,7 +1073,7 @@ private data class GeneralMessage(
     val authorId: String,
     val author: String,
     val text: String,
-    val createdAt: com.google.firebase.Timestamp?
+    val createdAt: Timestamp?
 )
 
 @Composable
@@ -1208,32 +1095,19 @@ private fun VibePhotoStudioScreen() {
         append(". Детализированная композиция, выразительный свет, чистая анатомия, высокая чёткость.")
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 16.dp)
-    ) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         VibeSectionTitle("Фото-студия", "Преврати идею в промпт")
 
         Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(VibePanel)
-                .padding(16.dp)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(VibePanel).padding(16.dp)
         ) {
             Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(105.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(vibeGradient()),
+                Modifier.fillMaxWidth().height(105.dp)
+                    .clip(RoundedCornerShape(18.dp)).background(vibeGradient()),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(45.dp)
-                )
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(45.dp))
             }
 
             Spacer(Modifier.height(15.dp))
@@ -1249,7 +1123,6 @@ private fun VibePhotoStudioScreen() {
             )
 
             Spacer(Modifier.height(10.dp))
-
             Text("Стиль", color = VibeMuted, fontSize = 12.sp)
             Spacer(Modifier.height(6.dp))
 
@@ -1261,26 +1134,20 @@ private fun VibePhotoStudioScreen() {
                 "Минимализм"
             ).forEach { option ->
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { style = option }
-                        .padding(vertical = 8.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        .clickable { style = option }.padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
                         selected = style == option,
                         onClick = { style = option },
-                        colors = RadioButtonDefaults.colors(
-                            selectedColor = VibeCyan
-                        )
+                        colors = RadioButtonDefaults.colors(selectedColor = VibeCyan)
                     )
                     Text(option, color = VibeText, fontSize = 14.sp)
                 }
             }
 
             Spacer(Modifier.height(8.dp))
-
             Text("Формат", color = VibeMuted, fontSize = 12.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Вертикальный 9:16", "Квадрат 1:1").forEach {
@@ -1307,14 +1174,8 @@ private fun VibePhotoStudioScreen() {
                     val clipboard = context.getSystemService(
                         android.content.Context.CLIPBOARD_SERVICE
                     ) as android.content.ClipboardManager
-                    clipboard.setPrimaryClip(
-                        android.content.ClipData.newPlainText("Vibe prompt", prompt)
-                    )
-                    Toast.makeText(
-                        context,
-                        "Промпт скопирован",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Vibe prompt", prompt))
+                    Toast.makeText(context, "Промпт скопирован", Toast.LENGTH_SHORT).show()
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp)
@@ -1335,19 +1196,9 @@ private fun VibePhotoStudioScreen() {
 }
 
 @Composable
-private fun VibeSectionTitle(
-    title: String,
-    subtitle: String
-) {
-    Column(
-        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
-    ) {
-        Text(
-            title,
-            color = VibeText,
-            fontSize = 25.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
+private fun VibeSectionTitle(title: String, subtitle: String) {
+    Column(modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)) {
+        Text(title, color = VibeText, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(4.dp))
         Text(subtitle, color = VibeMuted, fontSize = 13.sp)
     }
@@ -1362,18 +1213,12 @@ private fun VibeActionCard(
     onClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(19.dp))
-            .background(VibePanel)
-            .clickable(onClick = onClick)
-            .padding(14.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp))
+            .background(VibePanel).clickable(onClick = onClick).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier
-                .size(45.dp)
-                .clip(RoundedCornerShape(15.dp))
+            modifier = Modifier.size(45.dp).clip(RoundedCornerShape(15.dp))
                 .background(accent.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
@@ -1381,12 +1226,7 @@ private fun VibeActionCard(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                title,
-                color = VibeText,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp
-            )
+            Text(title, color = VibeText, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(Modifier.height(3.dp))
             Text(
                 subtitle,
@@ -1396,11 +1236,7 @@ private fun VibeActionCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = VibeMuted
-        )
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = VibeMuted)
     }
 }
 
@@ -1411,38 +1247,18 @@ private fun VibeEmptyState(
     subtitle: String
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 28.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier
-                .size(76.dp)
-                .clip(RoundedCornerShape(25.dp))
-                .background(VibePanel2),
+            modifier = Modifier.size(76.dp).clip(RoundedCornerShape(25.dp)).background(VibePanel2),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = VibeCyan,
-                modifier = Modifier.size(34.dp)
-            )
+            Icon(icon, contentDescription = null, tint = VibeCyan, modifier = Modifier.size(34.dp))
         }
         Spacer(Modifier.height(15.dp))
-        Text(
-            title,
-            color = VibeText,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Text(title, color = VibeText, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Text(
-            subtitle,
-            color = VibeMuted,
-            fontSize = 13.sp,
-            lineHeight = 19.sp
-        )
+        Text(subtitle, color = VibeMuted, fontSize = 13.sp, lineHeight = 19.sp)
     }
 }
