@@ -57,22 +57,22 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// VIBE CLASSIC — спокойная графитовая палитра
-private val VibeBg = Color(0xFF101113)
-private val VibePanel = Color(0xFF1B1C20)
-private val VibePanel2 = Color(0xFF25262C)
-private val VibePurple = Color(0xFF9B86D8)
-private val VibeCyan = Color(0xFFB9A2F5)
-private val VibePink = Color(0xFFE59AAE)
-private val VibeText = Color(0xFFF4F2F8)
-private val VibeMuted = Color(0xFFA5A5AF)
-private val VibeGreen = Color(0xFF83CFA7)
+// VIBE CHAT — светлая мятно-белая палитра.
+private val VibeBg = Color(0xFFF3FAF6)
+private val VibePanel = Color(0xFFFFFFFF)
+private val VibePanel2 = Color(0xFFE8F4ED)
+private val VibePurple = Color(0xFF208A60)
+private val VibeCyan = Color(0xFF27A879)
+private val VibePink = Color(0xFFE58B9A)
+private val VibeText = Color(0xFF18352A)
+private val VibeMuted = Color(0xFF718078)
+private val VibeGreen = Color(0xFF239967)
 
 private fun vibeGradient() = Brush.linearGradient(
     listOf(
-        Color(0xFF7865AE),
-        Color(0xFF51466F),
-        Color(0xFF34313E)
+        Color(0xFF75D6A6),
+        Color(0xFF35B985),
+        Color(0xFF16865D)
     )
 )
 
@@ -83,15 +83,22 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme(
-                colorScheme = darkColorScheme(
+                colorScheme = lightColorScheme(
                     primary = VibePurple,
+                    onPrimary = Color.White,
                     secondary = VibeCyan,
+                    onSecondary = Color.White,
                     background = VibeBg,
-                    surface = VibePanel,
                     onBackground = VibeText,
+                    surface = VibePanel,
                     onSurface = VibeText,
                     surfaceVariant = VibePanel2,
-                    onSurfaceVariant = VibeMuted
+                    onSurfaceVariant = VibeMuted,
+                    primaryContainer = Color(0xFFD9F3E4),
+                    onPrimaryContainer = Color(0xFF174C35),
+                    secondaryContainer = Color(0xFFDDF5E8),
+                    onSecondaryContainer = Color(0xFF174C35),
+                    error = Color(0xFFB94357)
                 )
             ) {
                 VibeRoot()
@@ -110,7 +117,9 @@ private fun VibeRoot() {
             currentUser = it.currentUser
         }
         auth.addAuthStateListener(listener)
-        onDispose { auth.removeAuthStateListener(listener) }
+        onDispose {
+            auth.removeAuthStateListener(listener)
+        }
     }
 
     Surface(
@@ -148,7 +157,9 @@ private fun VibeLogin() {
 
     val callbacks = remember {
         object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+            override fun onVerificationCompleted(
+                credential: PhoneAuthCredential
+            ) {
                 loading = true
                 auth.signInWithCredential(credential)
                     .addOnCompleteListener {
@@ -160,7 +171,9 @@ private fun VibeLogin() {
                     }
             }
 
-            override fun onVerificationFailed(exception: FirebaseException) {
+            override fun onVerificationFailed(
+                exception: FirebaseException
+            ) {
                 loading = false
                 message = exception.localizedMessage
                     ?: "Не удалось отправить SMS. Проверь номер и настройки Firebase."
@@ -184,9 +197,9 @@ private fun VibeLogin() {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF211D2B),
+                        Color(0xFFE2F7EA),
                         VibeBg,
-                        Color(0xFF17171B)
+                        Color(0xFFF4FAF6)
                     )
                 )
             )
@@ -217,7 +230,12 @@ private fun VibeLogin() {
             fontWeight = FontWeight.ExtraBold,
             color = VibeText
         )
-        Text("Твой мир общения", color = VibeCyan, fontSize = 15.sp)
+
+        Text(
+            "Твой мир общения",
+            color = VibeCyan,
+            fontSize = 15.sp
+        )
 
         Spacer(Modifier.height(32.dp))
 
@@ -229,14 +247,23 @@ private fun VibeLogin() {
                 .padding(20.dp)
         ) {
             Text(
-                if (verificationId == null) "Добро пожаловать" else "Подтверди номер",
+                if (verificationId == null) {
+                    "Добро пожаловать"
+                } else {
+                    "Подтверди номер"
+                },
                 color = VibeText,
                 fontSize = 21.sp,
                 fontWeight = FontWeight.Bold
             )
 
             Spacer(Modifier.height(8.dp))
-            Text(message, color = VibeMuted, fontSize = 13.sp)
+
+            Text(
+                message,
+                color = VibeMuted,
+                fontSize = 13.sp
+            )
 
             Spacer(Modifier.height(20.dp))
 
@@ -247,20 +274,27 @@ private fun VibeLogin() {
                 label = { Text("Номер с кодом страны") },
                 placeholder = { Text("+49…") },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone
+                ),
                 enabled = verificationId == null,
                 shape = RoundedCornerShape(15.dp)
             )
 
             if (verificationId != null) {
                 Spacer(Modifier.height(12.dp))
+
                 OutlinedTextField(
                     value = code,
-                    onValueChange = { code = it.filter(Char::isDigit).take(6) },
+                    onValueChange = {
+                        code = it.filter(Char::isDigit).take(6)
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Код из SMS") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number
+                    ),
                     shape = RoundedCornerShape(15.dp)
                 )
             }
@@ -273,34 +307,43 @@ private fun VibeLogin() {
                         message = "Не удалось открыть экран авторизации"
                     } else if (verificationId == null) {
                         val normalizedPhone = phone.trim()
+
                         if (!normalizedPhone.startsWith("+") ||
                             normalizedPhone.length < 8
                         ) {
-                            message = "Введи номер в международном формате, например +49…"
+                            message =
+                                "Введи номер в международном формате, например +49…"
                         } else {
                             loading = true
                             message = "Отправляем код…"
+
                             val options = PhoneAuthOptions.newBuilder(auth)
                                 .setPhoneNumber(normalizedPhone)
                                 .setTimeout(60L, TimeUnit.SECONDS)
                                 .setActivity(activity)
                                 .setCallbacks(callbacks)
                                 .build()
+
                             PhoneAuthProvider.verifyPhoneNumber(options)
                         }
                     } else {
                         val id = verificationId
+
                         if (id == null || code.length < 6) {
                             message = "Введи шестизначный код из SMS"
                         } else {
                             loading = true
-                            val credential = PhoneAuthProvider.getCredential(id, code)
+
+                            val credential =
+                                PhoneAuthProvider.getCredential(id, code)
+
                             auth.signInWithCredential(credential)
                                 .addOnCompleteListener {
                                     loading = false
                                     if (!it.isSuccessful) {
-                                        message = it.exception?.localizedMessage
-                                            ?: "Неверный код или ошибка входа"
+                                        message =
+                                            it.exception?.localizedMessage
+                                                ?: "Неверный код или ошибка входа"
                                     }
                                 }
                         }
@@ -324,7 +367,11 @@ private fun VibeLogin() {
                     )
                 } else {
                     Text(
-                        if (verificationId == null) "Получить код" else "Войти",
+                        if (verificationId == null) {
+                            "Получить код"
+                        } else {
+                            "Войти"
+                        },
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -379,6 +426,7 @@ private fun VibeHome(
 
         privateChat != null -> {
             val target = privateChat!!
+
             PrivateChatScreen(
                 otherUserId = target.first,
                 otherUserName = target.second,
@@ -444,7 +492,9 @@ private fun VibeHome(
                     when (selected) {
                         VibeTab.Chats -> VibeChatsListScreen(
                             myId = userId,
-                            onOpenChat = { id, name -> privateChat = id to name },
+                            onOpenChat = { id, name ->
+                                privateChat = id to name
+                            },
                             onOpenGeneralChat = { generalChat = true },
                             onOpenUsers = { tab = VibeTab.People }
                         )
@@ -453,7 +503,9 @@ private fun VibeHome(
                             db = db,
                             myId = userId,
                             onOpenProfile = { profileTarget = it },
-                            onOpenChat = { id, name -> privateChat = id to name }
+                            onOpenChat = { id, name ->
+                                privateChat = id to name
+                            }
                         )
 
                         VibeTab.Alex -> AlexVoiceScreen(
@@ -524,6 +576,7 @@ private fun VibeHeader(
                 fontWeight = FontWeight.ExtraBold,
                 color = VibeText
             )
+
             Text(
                 when (tab) {
                     VibeTab.Chats -> "Твои разговоры"
@@ -572,13 +625,17 @@ private fun VibeBottomBar(
     ) {
         items.forEach { (item, icon) ->
             val active = selected == item
+
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(13.dp))
                     .background(
-                        if (active) VibePurple.copy(alpha = 0.12f)
-                        else Color.Transparent
+                        if (active) {
+                            Color(0xFFDDF5E8)
+                        } else {
+                            Color.Transparent
+                        }
                     )
                     .clickable { onSelect(item) }
                     .padding(vertical = 7.dp),
@@ -590,12 +647,18 @@ private fun VibeBottomBar(
                     tint = if (active) VibeCyan else VibeMuted,
                     modifier = Modifier.size(21.dp)
                 )
+
                 Spacer(Modifier.height(4.dp))
+
                 Text(
                     item.label,
                     fontSize = 10.sp,
-                    color = if (active) VibeCyan else VibeMuted,
-                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                    color = if (active) VibePurple else VibeMuted,
+                    fontWeight = if (active) {
+                        FontWeight.SemiBold
+                    } else {
+                        FontWeight.Normal
+                    }
                 )
             }
         }
@@ -634,6 +697,7 @@ private fun VibePeopleScreen(
                         )
                     }.orEmpty()
             }
+
         onDispose { registration.remove() }
     }
 
@@ -666,13 +730,16 @@ private fun VibePeopleScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         VibeAvatar(user.avatarBase64, user.name)
+
                         Spacer(Modifier.width(12.dp))
+
                         Column(Modifier.weight(1f)) {
                             Text(
                                 user.name,
                                 color = VibeText,
                                 fontWeight = FontWeight.SemiBold
                             )
+
                             Text(
                                 user.bio.ifBlank { user.phone },
                                 color = VibeMuted,
@@ -681,7 +748,12 @@ private fun VibePeopleScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        IconButton(onClick = { onOpenChat(user.id, user.name) }) {
+
+                        IconButton(
+                            onClick = {
+                                onOpenChat(user.id, user.name)
+                            }
+                        ) {
                             Icon(
                                 Icons.Default.Chat,
                                 contentDescription = "Написать",
@@ -704,7 +776,9 @@ private fun VibeMyProfileScreen(
     onOpenProfile: (VibeUser) -> Unit
 ) {
     var user by remember {
-        mutableStateOf(VibeUser(userId, "Мой профиль", phone, "", ""))
+        mutableStateOf(
+            VibeUser(userId, "Мой профиль", phone, "", "")
+        )
     }
 
     DisposableEffect(userId) {
@@ -720,6 +794,7 @@ private fun VibeMyProfileScreen(
                     )
                 }
             }
+
         onDispose { registration.remove() }
     }
 
@@ -730,6 +805,7 @@ private fun VibeMyProfileScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         VibeSectionTitle("Мой профиль", "Настрой Vibe под себя")
+
         Spacer(Modifier.height(20.dp))
 
         Box(
@@ -743,12 +819,14 @@ private fun VibeMyProfileScreen(
         }
 
         Spacer(Modifier.height(15.dp))
+
         Text(
             user.name,
             color = VibeText,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
+
         Text(user.phone, color = VibeMuted)
 
         if (user.bio.isNotBlank()) {
@@ -783,7 +861,7 @@ private fun VibeMyProfileScreen(
                 .height(50.dp),
             shape = RoundedCornerShape(15.dp),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = VibePink
+                contentColor = Color(0xFFB94357)
             )
         ) {
             Icon(Icons.Default.Logout, contentDescription = null)
@@ -801,6 +879,7 @@ private fun VibeProfile(
     onSave: (String, String, String) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+
     var name by remember(user.id) { mutableStateOf(user.name) }
     var bio by remember(user.id) { mutableStateOf(user.bio) }
     var avatar by remember(user.id) { mutableStateOf(user.avatarBase64) }
@@ -812,7 +891,10 @@ private fun VibeProfile(
             runCatching {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     val bytes = input.readBytes()
-                    avatar = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                    avatar = Base64.encodeToString(
+                        bytes,
+                        Base64.NO_WRAP
+                    )
                 }
             }.onFailure {
                 Toast.makeText(
@@ -837,6 +919,7 @@ private fun VibeProfile(
                     tint = VibeText
                 )
             }
+
             Text(
                 if (isMe) "Редактирование" else "Профиль",
                 color = VibeText,
@@ -852,8 +935,11 @@ private fun VibeProfile(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             VibeAvatar(avatar, name, size = 104)
+
             if (isMe) {
-                TextButton(onClick = { imagePicker.launch("image/*") }) {
+                TextButton(
+                    onClick = { imagePicker.launch("image/*") }
+                ) {
                     Text("Изменить фотографию", color = VibeCyan)
                 }
             }
@@ -907,10 +993,17 @@ private fun VibeProfile(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
+
             Spacer(Modifier.height(8.dp))
+
             Text(user.phone, color = VibeMuted)
+
             Spacer(Modifier.height(12.dp))
-            Text(bio.ifBlank { "Пользователь Vibe Chat" }, color = VibeMuted)
+
+            Text(
+                bio.ifBlank { "Пользователь Vibe Chat" },
+                color = VibeMuted
+            )
         }
     }
 }
@@ -923,9 +1016,14 @@ private fun VibeAvatar(
 ) {
     val bitmap = remember(avatarBase64) {
         runCatching {
-            if (avatarBase64.isBlank()) null
-            else {
-                val bytes = Base64.decode(avatarBase64, Base64.DEFAULT)
+            if (avatarBase64.isBlank()) {
+                null
+            } else {
+                val bytes = Base64.decode(
+                    avatarBase64,
+                    Base64.DEFAULT
+                )
+
                 android.graphics.BitmapFactory.decodeByteArray(
                     bytes,
                     0,
@@ -969,7 +1067,10 @@ private fun VibeChatsListScreen(
     onOpenUsers: () -> Unit
 ) {
     val db = remember { FirebaseFirestore.getInstance() }
-    var chats by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+
+    var chats by remember {
+        mutableStateOf<List<Pair<String, String>>>(emptyList())
+    }
 
     DisposableEffect(myId) {
         val registration = db.collection("chats")
@@ -978,14 +1079,18 @@ private fun VibeChatsListScreen(
                 chats = snapshot?.documents
                     ?.filter { it.id != "general" }
                     ?.map { doc ->
-                        val participants = doc.get("participantIds") as? List<*>
+                        val participants =
+                            doc.get("participantIds") as? List<*>
+
                         val otherId = participants
                             ?.filterIsInstance<String>()
                             ?.firstOrNull { it != myId }
                             ?: doc.id
+
                         otherId to otherId
                     }.orEmpty()
             }
+
         onDispose { registration.remove() }
     }
 
@@ -1022,6 +1127,7 @@ private fun VibeChatsListScreen(
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold
         )
+
         Spacer(Modifier.height(10.dp))
 
         if (chats.isEmpty()) {
@@ -1039,13 +1145,16 @@ private fun VibeChatsListScreen(
                     var displayName by remember(otherId) {
                         mutableStateOf("Загрузка профиля…")
                     }
+
                     DisposableEffect(otherId) {
-                        val registration = db.collection("users").document(otherId)
-                            .addSnapshotListener { doc, _ ->
-                                displayName = doc?.getString("name")
-                                    ?: doc?.getString("phone")
-                                    ?: "Пользователь"
-                            }
+                        val registration =
+                            db.collection("users").document(otherId)
+                                .addSnapshotListener { doc, _ ->
+                                    displayName = doc?.getString("name")
+                                        ?: doc?.getString("phone")
+                                        ?: "Пользователь"
+                                }
+
                         onDispose { registration.remove() }
                     }
 
@@ -1053,7 +1162,9 @@ private fun VibeChatsListScreen(
                         icon = Icons.Default.Chat,
                         title = displayName,
                         subtitle = "Открыть диалог",
-                        onClick = { onOpenChat(otherId, displayName) }
+                        onClick = {
+                            onOpenChat(otherId, displayName)
+                        }
                     )
                 }
             }
@@ -1070,9 +1181,14 @@ private fun VibeGeneralChatReplacement(
     val auth = remember { FirebaseAuth.getInstance() }
     val myId = auth.currentUser?.uid.orEmpty()
 
-    var myName by remember { mutableStateOf(phone.ifBlank { "Участник" }) }
+    var myName by remember {
+        mutableStateOf(phone.ifBlank { "Участник" })
+    }
+
     var draft by remember { mutableStateOf("") }
-    var messages by remember { mutableStateOf<List<GeneralMessage>>(emptyList()) }
+    var messages by remember {
+        mutableStateOf<List<GeneralMessage>>(emptyList())
+    }
     var sending by remember { mutableStateOf(false) }
 
     DisposableEffect(myId) {
@@ -1082,11 +1198,13 @@ private fun VibeGeneralChatReplacement(
                     ?: doc?.getString("phone")
                     ?: phone.ifBlank { "Участник" }
             }
+
         onDispose { registration.remove() }
     }
 
     DisposableEffect(Unit) {
-        val registration = db.collection("chats").document("general")
+        val registration = db.collection("chats")
+            .document("general")
             .collection("messages")
             .orderBy("createdAt", Query.Direction.ASCENDING)
             .limit(150)
@@ -1101,6 +1219,7 @@ private fun VibeGeneralChatReplacement(
                     )
                 }.orEmpty()
             }
+
         onDispose { registration.remove() }
     }
 
@@ -1123,6 +1242,7 @@ private fun VibeGeneralChatReplacement(
                     tint = VibeText
                 )
             }
+
             Column(Modifier.weight(1f)) {
                 Text(
                     "Общий чат",
@@ -1130,8 +1250,14 @@ private fun VibeGeneralChatReplacement(
                     fontWeight = FontWeight.Bold,
                     fontSize = 19.sp
                 )
-                Text("Сообщество Vibe", color = VibeMuted, fontSize = 12.sp)
+
+                Text(
+                    "Сообщество Vibe",
+                    color = VibeMuted,
+                    fontSize = 12.sp
+                )
             }
+
             Icon(
                 Icons.Default.Public,
                 contentDescription = null,
@@ -1148,6 +1274,7 @@ private fun VibeGeneralChatReplacement(
         ) {
             items(messages, key = { it.id }) { message ->
                 val mine = message.authorId == myId
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1156,17 +1283,28 @@ private fun VibeGeneralChatReplacement(
                             end = if (mine) 0.dp else 42.dp
                         )
                         .clip(RoundedCornerShape(15.dp))
-                        .background(if (mine) VibePanel2 else VibePanel)
+                        .background(
+                            if (mine) {
+                                Color(0xFFDDF5E8)
+                            } else {
+                                VibePanel
+                            }
+                        )
                         .padding(11.dp)
                 ) {
                     Text(
                         if (mine) "Ты" else message.author,
-                        color = if (mine) VibeCyan else VibePurple,
+                        color = if (mine) VibePurple else VibeCyan,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+
                     Spacer(Modifier.height(4.dp))
-                    Text(message.text, color = VibeText)
+
+                    Text(
+                        message.text,
+                        color = VibeText
+                    )
                 }
             }
         }
@@ -1187,14 +1325,19 @@ private fun VibeGeneralChatReplacement(
                 maxLines = 4,
                 shape = RoundedCornerShape(18.dp)
             )
+
             Spacer(Modifier.width(8.dp))
+
             IconButton(
                 enabled = draft.isNotBlank() && !sending,
                 onClick = {
                     val text = draft.trim()
+
                     if (text.isNotEmpty() && myId.isNotEmpty()) {
                         sending = true
-                        db.collection("chats").document("general")
+
+                        db.collection("chats")
+                            .document("general")
                             .collection("messages")
                             .add(
                                 mapOf(
@@ -1235,9 +1378,14 @@ private data class GeneralMessage(
 @Composable
 private fun VibePhotoStudioScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
+
     var subject by remember { mutableStateOf("") }
-    var style by remember { mutableStateOf("Кинематографичный реализм") }
-    var format by remember { mutableStateOf("Вертикальный 9:16") }
+    var style by remember {
+        mutableStateOf("Кинематографичный реализм")
+    }
+    var format by remember {
+        mutableStateOf("Вертикальный 9:16")
+    }
     var extra by remember { mutableStateOf("") }
 
     val prompt = buildString {
@@ -1247,8 +1395,14 @@ private fun VibePhotoStudioScreen() {
         append(style)
         append(". Формат: ")
         append(format)
-        if (extra.isNotBlank()) append(". Дополнительно: $extra")
-        append(". Детализированная композиция, выразительный свет, чистая анатомия, высокая чёткость.")
+
+        if (extra.isNotBlank()) {
+            append(". Дополнительно: $extra")
+        }
+
+        append(
+            ". Детализированная композиция, выразительный свет, чистая анатомия, высокая чёткость."
+        )
     }
 
     Column(
@@ -1256,7 +1410,10 @@ private fun VibePhotoStudioScreen() {
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        VibeSectionTitle("Фото-студия", "Преврати идею в промпт")
+        VibeSectionTitle(
+            "Фото-студия",
+            "Преврати идею в промпт"
+        )
 
         Column(
             Modifier
@@ -1288,13 +1445,21 @@ private fun VibePhotoStudioScreen() {
                 onValueChange = { subject = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Что изображаем?") },
-                placeholder = { Text("Например, спорткар в ночном городе") },
+                placeholder = {
+                    Text("Например, спорткар в ночном городе")
+                },
                 minLines = 2,
                 shape = RoundedCornerShape(14.dp)
             )
 
             Spacer(Modifier.height(10.dp))
-            Text("Стиль", color = VibeMuted, fontSize = 12.sp)
+
+            Text(
+                "Стиль",
+                color = VibeMuted,
+                fontSize = 12.sp
+            )
+
             Spacer(Modifier.height(5.dp))
 
             listOf(
@@ -1319,14 +1484,28 @@ private fun VibePhotoStudioScreen() {
                             selectedColor = VibeCyan
                         )
                     )
-                    Text(option, color = VibeText, fontSize = 14.sp)
+
+                    Text(
+                        option,
+                        color = VibeText,
+                        fontSize = 14.sp
+                    )
                 }
             }
 
             Spacer(Modifier.height(8.dp))
-            Text("Формат", color = VibeMuted, fontSize = 12.sp)
+
+            Text(
+                "Формат",
+                color = VibeMuted,
+                fontSize = 12.sp
+            )
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Вертикальный 9:16", "Квадрат 1:1").forEach {
+                listOf(
+                    "Вертикальный 9:16",
+                    "Квадрат 1:1"
+                ).forEach {
                     FilterChip(
                         selected = format == it,
                         onClick = { format = it },
@@ -1352,9 +1531,14 @@ private fun VibePhotoStudioScreen() {
                     val clipboard = context.getSystemService(
                         android.content.Context.CLIPBOARD_SERVICE
                     ) as android.content.ClipboardManager
+
                     clipboard.setPrimaryClip(
-                        android.content.ClipData.newPlainText("Vibe prompt", prompt)
+                        android.content.ClipData.newPlainText(
+                            "Vibe prompt",
+                            prompt
+                        )
                     )
+
                     Toast.makeText(
                         context,
                         "Промпт скопирован",
@@ -1369,12 +1553,18 @@ private fun VibePhotoStudioScreen() {
                     containerColor = VibePurple
                 )
             ) {
-                Icon(Icons.Default.ContentCopy, contentDescription = null)
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = null
+                )
+
                 Spacer(Modifier.width(8.dp))
+
                 Text("Создать и скопировать промпт")
             }
 
             Spacer(Modifier.height(12.dp))
+
             Text(
                 "Эта версия формирует текстовый промпт. Для настоящей генерации изображений нужно отдельно подключить сервис генерации.",
                 color = VibeMuted,
@@ -1385,7 +1575,10 @@ private fun VibePhotoStudioScreen() {
 }
 
 @Composable
-private fun VibeSectionTitle(title: String, subtitle: String) {
+private fun VibeSectionTitle(
+    title: String,
+    subtitle: String
+) {
     Column(
         modifier = Modifier.padding(top = 8.dp, bottom = 15.dp)
     ) {
@@ -1395,8 +1588,14 @@ private fun VibeSectionTitle(title: String, subtitle: String) {
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
+
         Spacer(Modifier.height(4.dp))
-        Text(subtitle, color = VibeMuted, fontSize = 13.sp)
+
+        Text(
+            subtitle,
+            color = VibeMuted,
+            fontSize = 13.sp
+        )
     }
 }
 
@@ -1424,9 +1623,15 @@ private fun VibeActionCard(
                 .background(accent.copy(alpha = 0.13f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = accent)
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = accent
+            )
         }
+
         Spacer(Modifier.width(12.dp))
+
         Column(Modifier.weight(1f)) {
             Text(
                 title,
@@ -1434,7 +1639,9 @@ private fun VibeActionCard(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp
             )
+
             Spacer(Modifier.height(3.dp))
+
             Text(
                 subtitle,
                 color = VibeMuted,
@@ -1443,6 +1650,7 @@ private fun VibeActionCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
+
         Icon(
             Icons.Default.ChevronRight,
             contentDescription = null,
@@ -1467,7 +1675,7 @@ private fun VibeEmptyState(
             modifier = Modifier
                 .size(72.dp)
                 .clip(RoundedCornerShape(23.dp))
-                .background(VibePanel2),
+                .background(Color(0xFFE5F5EB)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -1477,14 +1685,18 @@ private fun VibeEmptyState(
                 modifier = Modifier.size(32.dp)
             )
         }
+
         Spacer(Modifier.height(15.dp))
+
         Text(
             title,
             color = VibeText,
             fontSize = 17.sp,
             fontWeight = FontWeight.SemiBold
         )
+
         Spacer(Modifier.height(6.dp))
+
         Text(
             subtitle,
             color = VibeMuted,
@@ -1493,7 +1705,6 @@ private fun VibeEmptyState(
         )
     }
 }
-
 
 @Composable
 private fun AlexChatScreen(
@@ -1572,7 +1783,8 @@ private fun AlexChatScreen(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                errorText = "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
+                errorText =
+                    "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
             } finally {
                 thinking = false
                 responseJob = null
@@ -1588,12 +1800,12 @@ private fun AlexChatScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF090A12))
+            .background(VibeBg)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF151725))
+                .background(VibePanel)
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1606,20 +1818,21 @@ private fun AlexChatScreen(
                 Icon(
                     Icons.Default.ArrowBack,
                     contentDescription = "Назад",
-                    tint = Color.White
+                    tint = VibeText
                 )
             }
 
             Column(Modifier.weight(1f)) {
                 Text(
                     "Алекс AI",
-                    color = Color.White,
+                    color = VibeText,
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
                 )
+
                 Text(
                     if (thinking) "Обдумывает ответ…" else "Текстовый режим",
-                    color = Color(0xFFAAA9BF),
+                    color = VibeMuted,
                     fontSize = 12.sp
                 )
             }
@@ -1633,7 +1846,7 @@ private fun AlexChatScreen(
                 Icon(
                     Icons.Default.Mic,
                     contentDescription = "Голосовой режим",
-                    tint = Color(0xFF72E7FF)
+                    tint = VibeCyan
                 )
             }
         }
@@ -1657,18 +1870,17 @@ private fun AlexChatScreen(
                         )
                         .clip(RoundedCornerShape(17.dp))
                         .background(
-                            if (fromAlex) Color(0xFF1B1D30)
-                            else Color(0xFF39304F)
+                            if (fromAlex) {
+                                VibePanel
+                            } else {
+                                Color(0xFFDDF5E8)
+                            }
                         )
                         .padding(13.dp)
                 ) {
                     Text(
                         message.first,
-                        color = if (fromAlex) {
-                            Color(0xFF72E7FF)
-                        } else {
-                            Color(0xFFC5B7FF)
-                        },
+                        color = if (fromAlex) VibeCyan else VibePurple,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1677,7 +1889,7 @@ private fun AlexChatScreen(
 
                     Text(
                         message.second,
-                        color = Color(0xFFF6F3FF),
+                        color = VibeText,
                         fontSize = 15.sp
                     )
                 }
@@ -1687,7 +1899,7 @@ private fun AlexChatScreen(
                 item {
                     Text(
                         "Алекс печатает…",
-                        color = Color(0xFFAAA9BF),
+                        color = VibeMuted,
                         modifier = Modifier.padding(8.dp)
                     )
                 }
@@ -1697,7 +1909,7 @@ private fun AlexChatScreen(
                 item {
                     Text(
                         errorText,
-                        color = Color(0xFFFF9CD6),
+                        color = Color(0xFFB94357),
                         fontSize = 12.sp,
                         modifier = Modifier.padding(8.dp)
                     )
@@ -1708,7 +1920,7 @@ private fun AlexChatScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF151725))
+                .background(VibePanel)
                 .navigationBarsPadding()
                 .imePadding()
                 .padding(9.dp),
@@ -1718,9 +1930,7 @@ private fun AlexChatScreen(
                 value = draft,
                 onValueChange = { draft = it.take(4000) },
                 modifier = Modifier.weight(1f),
-                placeholder = {
-                    Text("Напиши Алексу…")
-                },
+                placeholder = { Text("Напиши Алексу…") },
                 enabled = !thinking,
                 maxLines = 4,
                 shape = RoundedCornerShape(18.dp)
@@ -1729,11 +1939,7 @@ private fun AlexChatScreen(
             Spacer(Modifier.width(7.dp))
 
             IconButton(
-                enabled = if (thinking) {
-                    true
-                } else {
-                    draft.isNotBlank()
-                },
+                enabled = if (thinking) true else draft.isNotBlank(),
                 onClick = {
                     if (thinking) {
                         stopGeneration()
@@ -1749,7 +1955,7 @@ private fun AlexChatScreen(
                     } else {
                         "Отправить"
                     },
-                    tint = Color(0xFF72E7FF)
+                    tint = VibeCyan
                 )
             }
         }
