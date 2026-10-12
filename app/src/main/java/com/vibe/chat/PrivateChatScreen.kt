@@ -854,3 +854,16 @@ fun PrivateChatScreen(
         }
     }
 }
+                      )
+                                .addOnSuccessListener {
+                                    input = ""
+                                    sending = false
+                                }
+                                .addOnFailureListener { exception ->
+                                    error = "Не удалось отправить сообщение: ${
+                                        exception.localizedMessage ?: "ошибка Firebase"
+                                    }"
+                                    sending = false
+                                }
+                        }
+       
