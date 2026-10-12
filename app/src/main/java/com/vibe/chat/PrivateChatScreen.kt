@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -108,19 +108,174 @@ private fun loadVibeImage(url: String): Bitmap? {
                 sampleSize *= 2
             }
 
-            val options = BitmapFactory.Options().apply {
-                inSampleSize = sampleSize
-            }
-
             BitmapFactory.decodeByteArray(
                 bytes,
                 0,
                 bytes.size,
-                options
+                BitmapFactory.Options().apply {
+                    inSampleSize = sampleSize
+                }
             )
         }
     } catch (_: Exception) {
         null
+    }
+}
+
+/**
+ * Иллюстрация приветствия в стиле Vibe Aurora.
+ * Полностью рисуется средствами Compose, без внешних файлов.
+ */
+@Composable
+private fun VibeWelcomeArtwork() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(205.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Мягкое неоновое свечение на фоне.
+        Box(
+            modifier = Modifier
+                .size(178.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color(0x553FE8D0),
+                            Color(0x332B80A0),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // Внешнее светящееся кольцо.
+        Box(
+            modifier = Modifier
+                .size(148.dp)
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        listOf(
+                            VibeChatGreen,
+                            Color(0x664B9EA9),
+                            VibeChatAccent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        // Внутренний объёмный шар.
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF7EF5DC),
+                            Color(0xFF287D83),
+                            Color(0xFF34335D),
+                            Color(0xFF8B70E8)
+                        ),
+                        start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                        end = androidx.compose.ui.geometry.Offset(280f, 300f)
+                    )
+                )
+                .border(
+                    1.dp,
+                    Color(0x99D7FFF8),
+                    CircleShape
+                )
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 22.dp, top = 17.dp)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(
+                                Color(0xDFFFFFFF),
+                                Color(0x66B8FFF2),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 18.dp)
+                    .size(35.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            listOf(
+                                Color(0x887D70FF),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+        }
+
+        Text(
+            "✦",
+            modifier = Modifier.offset(x = (-79).dp, y = (-46).dp),
+            color = VibeChatGreen,
+            fontSize = 20.sp
+        )
+
+        Text(
+            "✧",
+            modifier = Modifier.offset(x = 82.dp, y = (-37).dp),
+            color = VibeChatAccent,
+            fontSize = 25.sp
+        )
+
+        Text(
+            "·",
+            modifier = Modifier.offset(x = (-83).dp, y = 37.dp),
+            color = VibeChatAccent,
+            fontSize = 30.sp
+        )
+
+        Text(
+            "✦",
+            modifier = Modifier.offset(x = 75.dp, y = 48.dp),
+            color = VibeChatGreen,
+            fontSize = 15.sp
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Vibe Chat",
+                color = VibeChatText,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+
+            Spacer(Modifier.height(3.dp))
+
+            Text(
+                "YOUR SPACE · YOUR VIBE",
+                color = VibeChatGreen,
+                fontSize = 9.sp,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -211,9 +366,7 @@ fun PrivateChatScreen(
 
             val fileName = runCatching {
                 resolver.query(uri, null, null, null, null)?.use { cursor ->
-                    val index = cursor.getColumnIndex(
-                        android.provider.OpenableColumns.DISPLAY_NAME
-                    )
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     if (cursor.moveToFirst() && index >= 0) {
                         cursor.getString(index)
                     } else {
@@ -282,7 +435,7 @@ fun PrivateChatScreen(
                                 attachmentUploading = false
                                 error =
                                     "Файл загружен, но сообщение не отправилось: " +
-                                    (exception.localizedMessage ?: "ошибка")
+                                        (exception.localizedMessage ?: "ошибка")
                             }
                     }
                     .addOnFailureListener { exception ->
@@ -327,10 +480,7 @@ fun PrivateChatScreen(
             if (otherAvatarBase64.isBlank()) {
                 null
             } else {
-                val bytes = Base64.decode(
-                    otherAvatarBase64,
-                    Base64.DEFAULT
-                )
+                val bytes = Base64.decode(otherAvatarBase64, Base64.DEFAULT)
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             }
         } catch (_: Exception) {
@@ -427,27 +577,23 @@ fun PrivateChatScreen(
                             messages = snapshot.documents.map { document ->
                                 PrivateMessage(
                                     id = document.id,
-                                    authorId = document.getString("authorId")
-                                        .orEmpty(),
-                                    authorName = document.getString("authorName")
-                                        .orEmpty(),
+                                    authorId = document.getString("authorId").orEmpty(),
+                                    authorName = document.getString("authorName").orEmpty(),
                                     text = document.getString("text").orEmpty(),
                                     createdAt = document.getTimestamp("createdAt"),
-                                    attachmentUrl = document
-                                        .getString("attachmentUrl").orEmpty(),
-                                    attachmentName = document
-                                        .getString("attachmentName").orEmpty(),
-                                    attachmentType = document
-                                        .getString("attachmentType").orEmpty(),
+                                    attachmentUrl = document.getString("attachmentUrl").orEmpty(),
+                                    attachmentName = document.getString("attachmentName").orEmpty(),
+                                    attachmentType = document.getString("attachmentType").orEmpty(),
                                     readBy = (
                                         document.get("readBy") as? List<*>
                                     )?.filterIsInstance<String>().orEmpty()
                                 )
                             }
 
+                            // Отмечаем входящие сообщения прочитанными.
                             snapshot.documents.forEach { document ->
-                                val authorId = document
-                                    .getString("authorId").orEmpty()
+                                val authorId =
+                                    document.getString("authorId").orEmpty()
 
                                 val readBy = (
                                     document.get("readBy") as? List<*>
@@ -510,17 +656,17 @@ fun PrivateChatScreen(
             )
             .imePadding()
     ) {
-        // Компактная верхняя панель.
+        // Верхняя панель.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xEE0D111A))
-                .padding(horizontal = 8.dp, vertical = 7.dp),
+                .padding(horizontal = 7.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.size(42.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     Icons.Default.ArrowBack,
@@ -531,21 +677,14 @@ fun PrivateChatScreen(
 
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(39.dp)
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
-                            listOf(
-                                Color(0xFF263747),
-                                Color(0xFF24243A)
-                            )
+                            listOf(Color(0xFF263747), Color(0xFF24243A))
                         )
                     )
-                    .border(
-                        1.dp,
-                        Color(0xFF344B50),
-                        CircleShape
-                    ),
+                    .border(1.dp, Color(0xFF344B50), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (otherAvatarBitmap != null) {
@@ -561,54 +700,48 @@ fun PrivateChatScreen(
                     Text(
                         actualOtherName.firstOrNull()?.uppercase() ?: "?",
                         color = VibeChatGreen,
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
             }
 
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(9.dp))
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(Modifier.weight(1f)) {
                 Text(
                     actualOtherName,
                     color = VibeChatText,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1
                 )
 
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(2.dp))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier
                             .size(6.dp)
                             .clip(CircleShape)
                             .background(
-                                if (chatReady) VibeChatGreen
-                                else VibeChatMuted
+                                if (chatReady) VibeChatGreen else VibeChatMuted
                             )
                     )
 
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(5.dp))
 
                     Text(
-                        if (chatReady) "Личная переписка"
-                        else "Подключение…",
+                        if (chatReady) "Личная переписка" else "Подключение…",
                         color = VibeChatMuted,
-                        fontSize = 11.sp
+                        fontSize = 10.sp
                     )
                 }
             }
 
             IconButton(
                 onClick = {},
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(38.dp)
             ) {
                 Icon(
                     Icons.Default.MoreVert,
@@ -638,16 +771,16 @@ fun PrivateChatScreen(
         if (error.isNotBlank()) {
             Surface(
                 color = Color(0xFF30202D),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 7.dp)
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
             ) {
                 Text(
                     error,
                     color = Color(0xFFFFA8C7),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(11.dp)
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(9.dp)
                 )
             }
         }
@@ -658,60 +791,36 @@ fun PrivateChatScreen(
                 .weight(1f)
                 .fillMaxWidth(),
             contentPadding = PaddingValues(
-                horizontal = 12.dp,
-                vertical = 12.dp
+                horizontal = 10.dp,
+                vertical = 8.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             if (messages.isEmpty()) {
                 item(key = "chat_welcome") {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 54.dp),
+                            .padding(top = 12.dp, bottom = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(66.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(
-                                            Color(0xFF203B3C),
-                                            Color(0xFF25233C)
-                                        )
-                                    )
-                                )
-                                .border(
-                                    1.dp,
-                                    Color(0xFF38504F),
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "✦",
-                                color = VibeChatGreen,
-                                fontSize = 29.sp
-                            )
-                        }
+                        VibeWelcomeArtwork()
 
-                        Spacer(Modifier.height(17.dp))
+                        Spacer(Modifier.height(15.dp))
 
                         Text(
                             when {
                                 loading -> "Подключаем переписку…"
                                 chatReady -> "Начни разговор"
-                                else -> "Личная переписка"
+                                else -> "Твоя личная вселенная"
                             },
                             color = VibeChatText,
-                            fontSize = 18.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center
                         )
 
-                        Spacer(Modifier.height(7.dp))
+                        Spacer(Modifier.height(6.dp))
 
                         Text(
                             if (chatReady) {
@@ -720,7 +829,7 @@ fun PrivateChatScreen(
                                 "Здесь будут ваши сообщения"
                             },
                             color = VibeChatMuted,
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -733,11 +842,13 @@ fun PrivateChatScreen(
                     .lowercase(Locale.ROOT)
                     .startsWith("image/")
 
+                val isRead = otherUserId in message.readBy
+
                 val bubbleShape = RoundedCornerShape(
-                    topStart = 15.dp,
-                    topEnd = 15.dp,
-                    bottomStart = if (mine) 15.dp else 4.dp,
-                    bottomEnd = if (mine) 4.dp else 15.dp
+                    topStart = 13.dp,
+                    topEnd = 13.dp,
+                    bottomStart = if (mine) 13.dp else 4.dp,
+                    bottomEnd = if (mine) 4.dp else 13.dp
                 )
 
                 Row(
@@ -751,7 +862,7 @@ fun PrivateChatScreen(
                 ) {
                     Column(
                         modifier = Modifier
-                            .widthIn(max = 300.dp)
+                            .widthIn(max = 276.dp)
                             .clip(bubbleShape)
                             .background(
                                 if (mine) {
@@ -779,17 +890,14 @@ fun PrivateChatScreen(
                                 },
                                 shape = bubbleShape
                             )
-                            .padding(
-                                horizontal = 10.dp,
-                                vertical = 6.dp
-                            )
+                            .padding(horizontal = 9.dp, vertical = 5.dp)
                     ) {
                         if (message.text.isNotBlank()) {
                             Text(
                                 message.text,
                                 color = VibeChatText,
-                                fontSize = 14.sp,
-                                lineHeight = 19.sp
+                                fontSize = 13.sp,
+                                lineHeight = 17.sp
                             )
                         }
 
@@ -811,12 +919,11 @@ fun PrivateChatScreen(
                                     val result = withContext(Dispatchers.IO) {
                                         loadVibeImage(message.attachmentUrl)
                                     }
-
                                     imageBitmap = result
                                     imageLoadFailed = result == null
                                 }
 
-                                Spacer(Modifier.height(5.dp))
+                                Spacer(Modifier.height(4.dp))
 
                                 if (imageBitmap != null) {
                                     Image(
@@ -825,21 +932,19 @@ fun PrivateChatScreen(
                                             .ifBlank { "Изображение" },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .widthIn(max = 270.dp)
-                                            .heightIn(max = 280.dp)
-                                            .clip(RoundedCornerShape(10.dp))
+                                            .widthIn(max = 250.dp)
+                                            .heightIn(max = 250.dp)
+                                            .clip(RoundedCornerShape(8.dp))
                                             .clickable {
                                                 runCatching {
-                                                    val intent = Intent(
-                                                        Intent.ACTION_VIEW,
-                                                        Uri.parse(
-                                                            message.attachmentUrl
+                                                    context.startActivity(
+                                                        Intent(
+                                                            Intent.ACTION_VIEW,
+                                                            Uri.parse(message.attachmentUrl)
                                                         )
                                                     )
-                                                    context.startActivity(intent)
                                                 }.onFailure {
-                                                    error =
-                                                        "Не удалось открыть изображение."
+                                                    error = "Не удалось открыть изображение."
                                                 }
                                             },
                                         contentScale = ContentScale.Fit
@@ -847,7 +952,7 @@ fun PrivateChatScreen(
                                 } else {
                                     Surface(
                                         color = Color(0xFF202A35),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable {
@@ -855,39 +960,33 @@ fun PrivateChatScreen(
                                                     context.startActivity(
                                                         Intent(
                                                             Intent.ACTION_VIEW,
-                                                            Uri.parse(
-                                                                message.attachmentUrl
-                                                            )
+                                                            Uri.parse(message.attachmentUrl)
                                                         )
                                                     )
                                                 }.onFailure {
-                                                    error =
-                                                        "Не удалось открыть вложение."
+                                                    error = "Не удалось открыть вложение."
                                                 }
                                             }
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment =
-                                                Alignment.CenterVertically
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
                                                 Icons.Default.AttachFile,
                                                 contentDescription = null,
                                                 tint = VibeChatGreen,
-                                                modifier = Modifier.size(20.dp)
+                                                modifier = Modifier.size(18.dp)
                                             )
 
-                                            Spacer(Modifier.width(8.dp))
+                                            Spacer(Modifier.width(7.dp))
 
                                             Column {
                                                 Text(
                                                     message.attachmentName
-                                                        .ifBlank {
-                                                            "Изображение"
-                                                        },
+                                                        .ifBlank { "Изображение" },
                                                     color = VibeChatText,
-                                                    fontSize = 12.sp,
+                                                    fontSize = 11.sp,
                                                     maxLines = 2
                                                 )
 
@@ -898,71 +997,59 @@ fun PrivateChatScreen(
                                                         "Загружаем изображение…"
                                                     },
                                                     color = VibeChatMuted,
-                                                    fontSize = 10.sp
+                                                    fontSize = 9.sp
                                                 )
                                             }
                                         }
                                     }
                                 }
-
-                                if (message.text.isNotBlank()) {
-                                    Spacer(Modifier.height(4.dp))
-                                }
                             } else {
-                                Spacer(Modifier.height(5.dp))
+                                Spacer(Modifier.height(4.dp))
 
                                 Row(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
+                                        .clip(RoundedCornerShape(8.dp))
                                         .background(Color(0xFF202A35))
                                         .clickable {
                                             runCatching {
                                                 context.startActivity(
                                                     Intent(
                                                         Intent.ACTION_VIEW,
-                                                        Uri.parse(
-                                                            message.attachmentUrl
-                                                        )
+                                                        Uri.parse(message.attachmentUrl)
                                                     )
                                                 )
                                             }.onFailure {
-                                                error =
-                                                    "Не удалось открыть вложение."
+                                                error = "Не удалось открыть вложение."
                                             }
                                         }
-                                        .padding(
-                                            horizontal = 10.dp,
-                                            vertical = 9.dp
-                                        ),
+                                        .padding(horizontal = 9.dp, vertical = 7.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         Icons.Default.AttachFile,
                                         contentDescription = null,
                                         tint = VibeChatGreen,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(17.dp)
                                     )
 
-                                    Spacer(Modifier.width(7.dp))
+                                    Spacer(Modifier.width(6.dp))
 
                                     Column(
-                                        modifier = Modifier.weight(
-                                            1f,
-                                            fill = false
-                                        )
+                                        modifier = Modifier.weight(1f, fill = false)
                                     ) {
                                         Text(
-                                            message.attachmentName
-                                                .ifBlank { "Вложение" },
+                                            message.attachmentName.ifBlank {
+                                                "Вложение"
+                                            },
                                             color = VibeChatText,
-                                            fontSize = 12.sp,
+                                            fontSize = 11.sp,
                                             maxLines = 2
                                         )
 
                                         Text(
                                             "Нажми, чтобы открыть",
                                             color = VibeChatGreen,
-                                            fontSize = 10.sp
+                                            fontSize = 9.sp
                                         )
                                     }
                                 }
@@ -972,7 +1059,7 @@ fun PrivateChatScreen(
                         Row(
                             modifier = Modifier
                                 .align(Alignment.End)
-                                .padding(top = 3.dp),
+                                .padding(top = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             message.createdAt?.let { timestamp ->
@@ -980,11 +1067,9 @@ fun PrivateChatScreen(
                                     SimpleDateFormat(
                                         "HH:mm",
                                         Locale.getDefault()
-                                    ).format(
-                                        Date(timestamp.toDate().time)
-                                    ),
+                                    ).format(Date(timestamp.toDate().time)),
                                     color = VibeChatMuted,
-                                    fontSize = 10.sp
+                                    fontSize = 9.sp
                                 )
                             }
 
@@ -992,17 +1077,14 @@ fun PrivateChatScreen(
                                 Spacer(Modifier.width(4.dp))
 
                                 Text(
-                                    text = if (
-                                        otherUserId in message.readBy
-                                    ) "✓✓" else "✓",
-                                    color = if (
-                                        otherUserId in message.readBy
-                                    ) {
+                                    text = if (isRead) "✓✓" else "✓",
+                                    color = if (isRead) {
                                         VibeChatGreen
                                     } else {
                                         VibeChatMuted
                                     },
-                                    fontSize = 11.sp
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
@@ -1011,7 +1093,7 @@ fun PrivateChatScreen(
             }
         }
 
-        // Компактная панель выбора эмодзи.
+        // Панель выбора эмодзи.
         if (showEmojiPicker) {
             val emojiSets = mapOf(
                 "Vibe" to listOf(
@@ -1038,73 +1120,67 @@ fun PrivateChatScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .padding(horizontal = 9.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(15.dp))
                     .background(VibeChatPanel)
-                    .border(
-                        1.dp,
-                        VibeChatLine,
-                        RoundedCornerShape(18.dp)
-                    )
-                    .padding(10.dp)
+                    .border(1.dp, VibeChatLine, RoundedCornerShape(15.dp))
+                    .padding(9.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(
                             "VIBE EMOJI",
                             color = VibeChatGreen,
-                            fontSize = 10.sp,
-                            letterSpacing = 1.4.sp,
+                            fontSize = 9.sp,
+                            letterSpacing = 1.3.sp,
                             fontWeight = FontWeight.Medium
                         )
 
                         Text(
                             "Выбери настроение",
                             color = VibeChatText,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     }
 
                     IconButton(
                         onClick = { showEmojiPicker = false },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Закрыть Emoji",
                             tint = VibeChatMuted,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(17.dp)
                         )
                     }
                 }
 
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(6.dp))
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(11.dp))
+                        .clip(RoundedCornerShape(9.dp))
                         .background(VibeChatBackground)
-                        .padding(horizontal = 9.dp, vertical = 8.dp),
+                        .padding(horizontal = 8.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Default.Search,
                         contentDescription = null,
                         tint = VibeChatMuted,
-                        modifier = Modifier.size(17.dp)
+                        modifier = Modifier.size(16.dp)
                     )
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(7.dp))
 
                     Box(Modifier.weight(1f)) {
                         if (emojiSearch.isBlank()) {
                             Text(
                                 "Найти смайлик…",
                                 color = VibeChatMuted,
-                                fontSize = 12.sp
+                                fontSize = 11.sp
                             )
                         }
 
@@ -1114,24 +1190,24 @@ fun PrivateChatScreen(
                             singleLine = true,
                             textStyle = TextStyle(
                                 color = VibeChatText,
-                                fontSize = 12.sp
+                                fontSize = 11.sp
                             ),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(7.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     emojiSets.keys.forEach { category ->
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(9.dp))
+                                .clip(RoundedCornerShape(8.dp))
                                 .background(
                                     if (emojiCategory == category) {
                                         Color(0xFF263B3B)
@@ -1139,10 +1215,8 @@ fun PrivateChatScreen(
                                         Color.Transparent
                                     }
                                 )
-                                .clickable {
-                                    emojiCategory = category
-                                }
-                                .padding(vertical = 8.dp),
+                                .clickable { emojiCategory = category }
+                                .padding(vertical = 7.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -1152,27 +1226,26 @@ fun PrivateChatScreen(
                                 } else {
                                     VibeChatMuted
                                 },
-                                fontSize = 10.sp
+                                fontSize = 9.sp
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(6.dp))
 
                 val shownEmojis = (
-                    emojiSets[emojiCategory]
-                        ?: emojiSets["Vibe"].orEmpty()
-                    ).filter {
-                        emojiSearch.isBlank() ||
-                            it.contains(emojiSearch, ignoreCase = true)
-                    }
+                    emojiSets[emojiCategory] ?: emojiSets["Vibe"].orEmpty()
+                ).filter {
+                    emojiSearch.isBlank() ||
+                        it.contains(emojiSearch, ignoreCase = true)
+                }
 
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(8),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 135.dp),
+                        .heightIn(max = 125.dp),
                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
@@ -1180,7 +1253,7 @@ fun PrivateChatScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(9.dp))
+                                .clip(RoundedCornerShape(8.dp))
                                 .clickable {
                                     if (input.length < 2000) {
                                         input = (input + emoji).take(2000)
@@ -1188,10 +1261,10 @@ fun PrivateChatScreen(
                                     showEmojiPicker = false
                                     emojiSearch = ""
                                 }
-                                .padding(vertical = 6.dp),
+                                .padding(vertical = 5.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(emoji, fontSize = 21.sp)
+                            Text(emoji, fontSize = 20.sp)
                         }
                     }
                 }
@@ -1202,11 +1275,8 @@ fun PrivateChatScreen(
             Text(
                 "Загружаем вложение…",
                 color = VibeChatGreen,
-                fontSize = 11.sp,
-                modifier = Modifier.padding(
-                    start = 16.dp,
-                    bottom = 4.dp
-                )
+                fontSize = 10.sp,
+                modifier = Modifier.padding(start = 14.dp, bottom = 3.dp)
             )
         }
 
@@ -1215,12 +1285,7 @@ fun PrivateChatScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xF20D111A))
-                .padding(
-                    start = 7.dp,
-                    end = 9.dp,
-                    top = 5.dp,
-                    bottom = 7.dp
-                ),
+                .padding(start = 5.dp, end = 7.dp, top = 4.dp, bottom = 5.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             IconButton(
@@ -1236,7 +1301,7 @@ fun PrivateChatScreen(
                         )
                     )
                 },
-                modifier = Modifier.size(39.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     Icons.Default.AttachFile,
@@ -1246,15 +1311,13 @@ fun PrivateChatScreen(
                     } else {
                         VibeChatGreen
                     },
-                    modifier = Modifier.size(21.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
             IconButton(
-                onClick = {
-                    showEmojiPicker = !showEmojiPicker
-                },
-                modifier = Modifier.size(39.dp)
+                onClick = { showEmojiPicker = !showEmojiPicker },
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     Icons.Default.EmojiEmotions,
@@ -1264,45 +1327,37 @@ fun PrivateChatScreen(
                     } else {
                         VibeChatGreen
                     },
-                    modifier = Modifier.size(21.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            Spacer(Modifier.width(3.dp))
+            Spacer(Modifier.width(2.dp))
 
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .defaultMinSize(minHeight = 44.dp)
-                    .clip(RoundedCornerShape(22.dp))
+                    .defaultMinSize(minHeight = 40.dp)
+                    .clip(RoundedCornerShape(20.dp))
                     .background(VibeChatPanel)
                     .border(
                         1.dp,
                         Color(0xFF35444A),
-                        RoundedCornerShape(22.dp)
+                        RoundedCornerShape(20.dp)
                     )
-                    .padding(
-                        horizontal = 13.dp,
-                        vertical = 11.dp
-                    ),
+                    .padding(horizontal = 11.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicTextField(
                     value = input,
-                    onValueChange = {
-                        input = it.take(2000)
-                    },
+                    onValueChange = { input = it.take(2000) },
                     modifier = Modifier.weight(1f),
                     textStyle = TextStyle(
                         color = VibeChatText,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
                     ),
                     cursorBrush = Brush.verticalGradient(
-                        listOf(
-                            VibeChatGreen,
-                            VibeChatAccent
-                        )
+                        listOf(VibeChatGreen, VibeChatAccent)
                     ),
                     decorationBox = { innerTextField ->
                         Box {
@@ -1310,7 +1365,7 @@ fun PrivateChatScreen(
                                 Text(
                                     "Написать сообщение…",
                                     color = VibeChatMuted,
-                                    fontSize = 13.sp
+                                    fontSize = 12.sp
                                 )
                             }
                             innerTextField()
@@ -1319,7 +1374,7 @@ fun PrivateChatScreen(
                 )
             }
 
-            Spacer(Modifier.width(7.dp))
+            Spacer(Modifier.width(6.dp))
 
             val canSend = input.isNotBlank() &&
                 chatReady &&
@@ -1330,7 +1385,7 @@ fun PrivateChatScreen(
 
             Box(
                 modifier = Modifier
-                    .size(43.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
                     .background(
                         if (canSend) {
@@ -1342,20 +1397,13 @@ fun PrivateChatScreen(
                             )
                         } else {
                             Brush.linearGradient(
-                                listOf(
-                                    VibeChatPanel,
-                                    VibeChatPanel
-                                )
+                                listOf(VibeChatPanel, VibeChatPanel)
                             )
                         }
                     )
                     .border(
                         1.dp,
-                        if (canSend) {
-                            Color(0xFF477B70)
-                        } else {
-                            VibeChatLine
-                        },
+                        if (canSend) Color(0xFF477B70) else VibeChatLine,
                         CircleShape
                     )
                     .clickable(enabled = canSend) {
@@ -1373,18 +1421,18 @@ fun PrivateChatScreen(
                                         "text" to textToSend,
                                         "authorId" to myId,
                                         "authorName" to myName,
-                                        "createdAt" to
-                                            FieldValue.serverTimestamp(),
+                                        "createdAt" to FieldValue.serverTimestamp(),
                                         "readBy" to listOf(myId)
                                     )
                                 )
                                 .addOnSuccessListener {
+                                    // Очищаем поле только после подтверждения Firebase.
                                     input = ""
                                     sending = false
                                 }
                                 .addOnFailureListener { exception ->
-                                    error =
-                                        "Не удалось отправить сообщение: " +
+                                    // При ошибке оставляем текст для повторной отправки.
+                                    error = "Не удалось отправить сообщение: " +
                                         (
                                             exception.localizedMessage
                                                 ?: "ошибка Firebase"
@@ -1398,12 +1446,8 @@ fun PrivateChatScreen(
                 Icon(
                     Icons.Default.Send,
                     contentDescription = "Отправить",
-                    tint = if (canSend) {
-                        VibeChatGreen
-                    } else {
-                        VibeChatMuted
-                    },
-                    modifier = Modifier.size(19.dp)
+                    tint = if (canSend) VibeChatGreen else VibeChatMuted,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
