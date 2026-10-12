@@ -1,4 +1,3 @@
-
 package com.vibe.chat
 
 import android.Manifest
@@ -19,17 +18,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,22 +26,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,8 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.google.firebase.Firebase
-import com.google.firebase.ai.GenerativeBackend
 import com.google.firebase.ai.ai
+import com.google.firebase.ai.type.GenerativeBackend
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -91,10 +66,7 @@ private val AlexWhite = Color(0xFFF6F3FF)
 private val AlexMuted = Color(0xFFAAA9BF)
 
 private enum class AlexMode {
-    READY,
-    LISTENING,
-    THINKING,
-    SPEAKING
+    READY, LISTENING, THINKING, SPEAKING
 }
 
 @Composable
@@ -117,6 +89,7 @@ fun AlexVoiceScreen() {
         mutableStateListOf<Pair<String, String>>()
     }
 
+    // Исправленный импорт GenerativeBackend для Firebase AI.
     val model = remember {
         Firebase.ai(GenerativeBackend.googleAI())
             .generativeModel("gemini-3.8-flash")
@@ -163,6 +136,7 @@ fun AlexVoiceScreen() {
         if (message.isBlank() || mode == AlexMode.THINKING) return
 
         stopSpeaking()
+
         userText = message.trim()
         conversation.add("Пользователь" to userText)
 
@@ -171,7 +145,6 @@ fun AlexVoiceScreen() {
 
         scope.launch {
             try {
-                // История фиксируется до сетевого запроса.
                 val history = conversation
                     .takeLast(16)
                     .joinToString("\n") { (speaker, text) ->
@@ -181,15 +154,14 @@ fun AlexVoiceScreen() {
                 val prompt = """
                     Ты — Алекс, голосовой ИИ-помощник приложения Vibe Chat.
 
-                    Твои правила:
+                    Правила:
                     - Отвечай естественно, дружелюбно и понятно.
                     - По умолчанию говори на русском языке.
-                    - Будь тёплым собеседником, но не утверждай,
-                      что являешься человеком.
-                    - Отвечай так, чтобы текст удобно звучал вслух.
+                    - Не утверждай, что являешься человеком.
+                    - Пиши так, чтобы ответ было удобно слушать вслух.
                     - Не используй длинные списки без необходимости.
-                    - Не заявляй, что выполнил действие, если у тебя
-                      нет соответствующего инструмента.
+                    - Не заявляй, что выполнил действие, если у тебя нет
+                      соответствующего инструмента.
                     - Учитывай контекст предыдущих сообщений.
 
                     История диалога:
@@ -209,8 +181,8 @@ fun AlexVoiceScreen() {
 
                 alexText = answer
                 conversation.add("Алекс" to answer)
-
                 speakAnswer(answer)
+
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -230,6 +202,12 @@ fun AlexVoiceScreen() {
 
         stopSpeaking()
 
+        val activeRecognizer = recognizer
+        if (activeRecognizer == null) {
+            status = "Распознавание речи ещё не готово"
+            return
+        }
+
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -243,13 +221,6 @@ fun AlexVoiceScreen() {
         }
 
         try {
-            val activeRecognizer = recognizer
-
-            if (activeRecognizer == null) {
-                status = "Распознавание речи ещё не готово"
-                return
-            }
-
             mode = AlexMode.LISTENING
             status = "Слушаю тебя…"
             activeRecognizer.startListening(intent)
@@ -279,7 +250,7 @@ fun AlexVoiceScreen() {
             if (result == TextToSpeech.SUCCESS) {
                 val languageResult =
                     speechEngine?.setLanguage(Locale("ru", "RU"))
-                    ?: TextToSpeech.ERROR
+                        ?: TextToSpeech.ERROR
 
                 speechReady =
                     languageResult != TextToSpeech.LANG_MISSING_DATA &&
@@ -363,7 +334,6 @@ fun AlexVoiceScreen() {
                     }
 
                     override fun onRmsChanged(rmsdB: Float) = Unit
-
                     override fun onBufferReceived(buffer: ByteArray?) = Unit
 
                     override fun onEndOfSpeech() {
@@ -376,17 +346,21 @@ fun AlexVoiceScreen() {
                         status = when (error) {
                             SpeechRecognizer.ERROR_NO_MATCH ->
                                 "Не расслышал. Попробуй ещё раз"
+
                             SpeechRecognizer.ERROR_NETWORK,
                             SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
                                 "Проверь сеть распознавания"
+
                             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
                                 "Нет разрешения на микрофон"
+
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
                                 "Не услышал речь"
+
                             SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
                                 "Распознавание занято. Попробуй ещё раз"
-                            else ->
-                                "Не удалось распознать речь"
+
+                            else -> "Не удалось распознать речь"
                         }
                     }
 
@@ -406,9 +380,7 @@ fun AlexVoiceScreen() {
                         }
                     }
 
-                    override fun onPartialResults(
-                        partialResults: Bundle?
-                    ) = Unit
+                    override fun onPartialResults(partialResults: Bundle?) = Unit
 
                     override fun onEvent(
                         eventType: Int,
@@ -458,13 +430,13 @@ fun AlexVoiceScreen() {
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Алекс",
+                            text = "Алекс",
                             color = AlexWhite,
                             fontSize = 23.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Голосовой ИИ · Vibe Chat",
+                            text = "Голосовой ИИ · Vibe Chat",
                             color = AlexMuted,
                             fontSize = 12.sp
                         )
@@ -544,19 +516,17 @@ fun AlexVoiceScreen() {
                             shape = RoundedCornerShape(20.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(
-                                modifier = Modifier.padding(14.dp)
-                            ) {
+                            Column(Modifier.padding(14.dp)) {
                                 if (userText.isNotBlank()) {
                                     Text(
-                                        "ТЫ",
+                                        text = "ТЫ",
                                         color = AlexCyan,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Spacer(Modifier.height(4.dp))
                                     Text(
-                                        userText,
+                                        text = userText,
                                         color = AlexWhite,
                                         fontSize = 14.sp
                                     )
@@ -564,14 +534,14 @@ fun AlexVoiceScreen() {
                                 }
 
                                 Text(
-                                    "АЛЕКС",
+                                    text = "АЛЕКС",
                                     color = AlexPink,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    alexText,
+                                    text = alexText,
                                     color = AlexWhite,
                                     fontSize = 14.sp,
                                     lineHeight = 20.sp
@@ -622,9 +592,7 @@ fun AlexVoiceScreen() {
                             } else {
                                 Icons.Default.Mic
                             },
-                            contentDescription = if (
-                                mode == AlexMode.LISTENING
-                            ) {
+                            contentDescription = if (mode == AlexMode.LISTENING) {
                                 "Завершить запись"
                             } else {
                                 "Говорить с Алексом"
@@ -657,10 +625,13 @@ fun AlexVoiceScreen() {
                     text = when (mode) {
                         AlexMode.LISTENING ->
                             "Нажми на микрофон, чтобы завершить запись"
+
                         AlexMode.THINKING ->
                             "Секунду, я готовлю ответ"
+
                         AlexMode.SPEAKING ->
                             "Можно остановить мой голос кнопкой справа"
+
                         AlexMode.READY ->
                             "Нажми на микрофон и говори по-русски"
                     },
@@ -702,7 +673,8 @@ private fun AlexEnergyOrb(
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = if (mode == AlexMode.THINKING) 2200 else 8000
+                durationMillis =
+                    if (mode == AlexMode.THINKING) 2200 else 8000
             ),
             repeatMode = RepeatMode.Restart
         ),
@@ -722,7 +694,6 @@ private fun AlexEnergyOrb(
         val base = size.minDimension * 0.31f
         val radius = base * pulse
 
-        // Широкие полупрозрачные слои создают эффект свечения.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -755,7 +726,6 @@ private fun AlexEnergyOrb(
             center = Offset(cx, cy)
         )
 
-        // Внешние энергетические кольца.
         drawCircle(
             color = glow.copy(alpha = 0.62f),
             radius = radius * 1.42f,
@@ -770,11 +740,8 @@ private fun AlexEnergyOrb(
             style = Stroke(width = 1.dp.toPx())
         )
 
-        // Движущиеся световые точки вокруг шара.
         for (i in 0 until 8) {
-            val angle = Math.toRadians(
-                (rotation + i * 45.0)
-            )
+            val angle = Math.toRadians(rotation + i * 45.0)
             val orbit = radius * if (i % 2 == 0) 1.48f else 1.68f
             val x = cx + cos(angle).toFloat() * orbit
             val y = cy + sin(angle).toFloat() * orbit
@@ -787,7 +754,6 @@ private fun AlexEnergyOrb(
             )
         }
 
-        // Центральная сфера с объёмным градиентом.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -807,7 +773,6 @@ private fun AlexEnergyOrb(
             center = Offset(cx, cy)
         )
 
-        // Блик на поверхности.
         drawCircle(
             color = Color.White.copy(alpha = 0.52f),
             radius = radius * 0.14f,
@@ -817,7 +782,6 @@ private fun AlexEnergyOrb(
             )
         )
 
-        // Дуга меняет положение во время анимации.
         drawArc(
             color = Color.White.copy(alpha = 0.65f),
             startAngle = rotation,
