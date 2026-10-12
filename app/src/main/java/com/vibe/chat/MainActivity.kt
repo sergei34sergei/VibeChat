@@ -235,7 +235,7 @@ private fun VibeLogin() {
         Text(
             "Vibe Chat",
             fontSize = 34.sp,
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = FontWeight.SemiBold,
             color = VibeText
         )
 
@@ -262,7 +262,7 @@ private fun VibeLogin() {
                 },
                 color = VibeText,
                 fontSize = 21.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Medium
             )
 
             Spacer(Modifier.height(8.dp))
@@ -380,7 +380,7 @@ private fun VibeLogin() {
                         } else {
                             "Войти"
                         },
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -572,7 +572,7 @@ private fun VibeHeader(
             Text(
                 "Vibe Chat",
                 fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.SemiBold,
                 color = VibeText
             )
 
@@ -820,7 +820,7 @@ private fun VibeMyProfileScreen(
             user.name,
             color = VibeText,
             fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Medium
         )
 
         Text(user.phone, color = VibeMuted)
@@ -1113,7 +1113,7 @@ private fun VibeProfile(
                 if (isMe) "Редактирование" else "Профиль",
                 color = VibeText,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Medium
             )
         }
 
@@ -1180,7 +1180,7 @@ private fun VibeProfile(
                 name,
                 color = VibeText,
                 fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Medium
             )
 
             Spacer(Modifier.height(8.dp))
@@ -1242,7 +1242,7 @@ private fun VibeAvatar(
                 name.firstOrNull()?.uppercase() ?: "?",
                 color = Color.White,
                 fontSize = (size / 2.2f).sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Medium
             )
         }
     }
@@ -1314,7 +1314,7 @@ private fun VibeChatsListScreen(
             "ЛИЧНЫЕ ДИАЛОГИ",
             color = VibeMuted,
             fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Medium
         )
 
         Spacer(Modifier.height(10.dp))
@@ -1436,7 +1436,7 @@ private fun VibeGeneralChatReplacement(
                 Text(
                     "Общий чат",
                     color = VibeText,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Medium,
                     fontSize = 19.sp
                 )
 
@@ -1775,7 +1775,7 @@ private fun VibeSectionTitle(
             title,
             color = VibeText,
             fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Medium
         )
 
         Spacer(Modifier.height(4.dp))
@@ -2110,7 +2110,7 @@ private fun AlexChatScreen(
                     "Alex AI",
                     color = VibeText,
                     fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Medium
                 )
                 Text(
                     if (thinking) "Готовит ответ…" else "Твой AI-помощник",
@@ -2154,7 +2154,7 @@ private fun AlexChatScreen(
                             "Alex AI",
                             color = VibeText,
                             fontSize = 28.sp,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.SemiBold
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
@@ -2192,7 +2192,7 @@ private fun AlexChatScreen(
                             if (fromAlex) "Alex AI" else "Ты",
                             color = if (fromAlex) VibePurple else VibeCyan,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Medium
                         )
                         Spacer(Modifier.height(5.dp))
                         Text(message.second, color = VibeText, fontSize = 15.sp)
