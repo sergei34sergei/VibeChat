@@ -1,4 +1,3 @@
-
 package com.vibe.chat
 
 import android.Manifest
@@ -59,9 +58,8 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-// Vibe Chat 2.0: мятный, белый и мягкий коралловый.
 private val AlexBackground = Color(0xFFF3FAF6)
-private val AlexPanel = Color(0xFFFFFFFF)
+private val AlexPanel = Color.White
 private val AlexPurple = Color(0xFF208A60)
 private val AlexLavender = Color(0xFF8BD9B0)
 private val AlexPink = Color(0xFFE58B9A)
@@ -70,10 +68,7 @@ private val AlexWhite = Color(0xFF18352A)
 private val AlexMuted = Color(0xFF718078)
 
 private enum class AlexMode {
-    READY,
-    LISTENING,
-    THINKING,
-    SPEAKING
+    READY, LISTENING, THINKING, SPEAKING
 }
 
 @Composable
@@ -100,15 +95,12 @@ fun AlexVoiceScreen(
     var speechReady by remember { mutableStateOf(false) }
     var responseJob by remember { mutableStateOf<Job?>(null) }
     var ignoreRecognizerErrors by remember { mutableStateOf(false) }
-
-    // Токен не позволяет старому запросу перезаписать новый ответ.
-    var requestToken by remember { mutableStateOf(0) }
+    var requestToken by remember { mutableIntStateOf(0) }
 
     val conversation = remember {
         mutableStateListOf<Pair<String, String>>()
     }
 
-    // Сохраняем используемую в проекте модель Firebase AI.
     val model = remember {
         Firebase.ai(
             backend = GenerativeBackend.googleAI()
@@ -125,9 +117,7 @@ fun AlexVoiceScreen(
     }
 
     fun stopEverything() {
-        // Инвалидируем любой ранее запущенный запрос.
-        requestToken += 1
-
+        requestToken++
         ignoreRecognizerErrors = true
 
         responseJob?.cancel()
@@ -180,7 +170,7 @@ fun AlexVoiceScreen(
         userText = cleanMessage
         conversation.add("Пользователь" to cleanMessage)
 
-        requestToken += 1
+        requestToken++
         val currentToken = requestToken
 
         mode = AlexMode.THINKING
@@ -214,7 +204,6 @@ fun AlexVoiceScreen(
                     model.generateContent(prompt)
                 }
 
-                // Если запрос отменён или уже заменён, ничего не меняем.
                 if (currentToken != requestToken) {
                     return@launch
                 }
@@ -238,7 +227,6 @@ fun AlexVoiceScreen(
                         "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
                 }
             } finally {
-                // Старый запрос не должен сбрасывать ссылку на новый.
                 if (currentToken == requestToken) {
                     responseJob = null
                 }
@@ -306,17 +294,17 @@ fun AlexVoiceScreen(
             }
         }
 
-    // Голосовой движок.
     DisposableEffect(context) {
         var alive = true
+        var engine: TextToSpeech? = null
 
-        val engine = TextToSpeech(context) { result ->
+        val newEngine = TextToSpeech(context) { result ->
             if (!alive) return@TextToSpeech
 
-            if (result == TextToSpeech.SUCCESS) {
+            val activeEngine = engine
+            if (result == TextToSpeech.SUCCESS && activeEngine != null) {
                 val languageResult =
-                    speechEngine?.setLanguage(Locale("ru", "RU"))
-                        ?: TextToSpeech.ERROR
+                    activeEngine.setLanguage(Locale("ru", "RU"))
 
                 speechReady =
                     languageResult != TextToSpeech.LANG_MISSING_DATA &&
@@ -332,9 +320,10 @@ fun AlexVoiceScreen(
             }
         }
 
-        speechEngine = engine
+        engine = newEngine
+        speechEngine = newEngine
 
-        engine.setOnUtteranceProgressListener(
+        newEngine.setOnUtteranceProgressListener(
             object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
                     if (alive) {
@@ -372,14 +361,13 @@ fun AlexVoiceScreen(
 
         onDispose {
             alive = false
-            engine.stop()
-            engine.shutdown()
+            newEngine.stop()
+            newEngine.shutdown()
             speechEngine = null
             speechReady = false
         }
     }
 
-    // Распознавание речи.
     DisposableEffect(context) {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             recognizer = null
@@ -406,8 +394,6 @@ fun AlexVoiceScreen(
                     override fun onBufferReceived(buffer: ByteArray?) = Unit
 
                     override fun onEndOfSpeech() {
-                        // Не устанавливаем THINKING как признак активного
-                        // запроса: сначала нужно получить распознанный текст.
                         status = "Распознаю речь…"
                     }
 
