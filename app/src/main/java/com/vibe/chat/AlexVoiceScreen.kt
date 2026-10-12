@@ -1,3 +1,4 @@
+
 package com.vibe.chat
 
 import android.Manifest
@@ -89,10 +90,11 @@ fun AlexVoiceScreen() {
         mutableStateListOf<Pair<String, String>>()
     }
 
-    // Исправленный импорт GenerativeBackend для Firebase AI.
+    // Исправленный вызов Firebase AI: backend передаётся по имени.
     val model = remember {
-        Firebase.ai(GenerativeBackend.googleAI())
-            .generativeModel("gemini-3.8-flash")
+        Firebase.ai(
+            backend = GenerativeBackend.googleAI()
+        ).generativeModel("gemini-3.8-flash")
     }
 
     fun stopSpeaking() {
@@ -249,8 +251,7 @@ fun AlexVoiceScreen() {
 
             if (result == TextToSpeech.SUCCESS) {
                 val languageResult =
-                    speechEngine?.setLanguage(Locale("ru", "RU"))
-                        ?: TextToSpeech.ERROR
+                    engineLanguageResult(speechEngine)
 
                 speechReady =
                     languageResult != TextToSpeech.LANG_MISSING_DATA &&
@@ -642,6 +643,13 @@ fun AlexVoiceScreen() {
             }
         }
     }
+}
+
+private fun engineLanguageResult(
+    engine: TextToSpeech?
+): Int {
+    return engine?.setLanguage(Locale("ru", "RU"))
+        ?: TextToSpeech.ERROR
 }
 
 @Composable
