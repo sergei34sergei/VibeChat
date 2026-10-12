@@ -4,6 +4,7 @@ package com.vibe.chat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -112,7 +113,8 @@ fun VibeChatsListScreenV2(
         }
         .sortedBy { it.name.lowercase() }
 
-    val privateUsers = chatUserIds.mapNotNull { users[it] }
+    val privateUsers = chatUserIds
+        .mapNotNull { users[it] }
         .filter {
             search.isBlank() ||
                 it.name.contains(search, ignoreCase = true) ||
@@ -251,12 +253,9 @@ fun VibeChatsListScreenV2(
                 }
             } else {
                 items(privateUsers, key = { it.id }) { user ->
-                    PrivateChatRow(
-                        user = user,
-                        onClick = {
-                            onOpenPrivateChat(user.id, user.name)
-                        }
-                    )
+                    PrivateChatRow(user = user) {
+                        onOpenPrivateChat(user.id, user.name)
+                    }
                 }
             }
 
@@ -277,12 +276,9 @@ fun VibeChatsListScreenV2(
                     },
                     key = { "person_${it.id}" }
                 ) { user ->
-                    PrivateChatRow(
-                        user = user,
-                        onClick = {
-                            onOpenPrivateChat(user.id, user.name)
-                        }
-                    )
+                    PrivateChatRow(user = user) {
+                        onOpenPrivateChat(user.id, user.name)
+                    }
                 }
             }
         }
