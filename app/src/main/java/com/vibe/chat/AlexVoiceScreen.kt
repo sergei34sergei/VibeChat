@@ -1,3 +1,4 @@
+
 package com.vibe.chat
 
 import android.Manifest
@@ -58,14 +59,15 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-private val AlexBackground = Color(0xFFF3FAF6)
-private val AlexPanel = Color.White
-private val AlexPurple = Color(0xFF208A60)
-private val AlexLavender = Color(0xFF8BD9B0)
-private val AlexPink = Color(0xFFE58B9A)
-private val AlexCyan = Color(0xFF27A879)
-private val AlexWhite = Color(0xFF18352A)
-private val AlexMuted = Color(0xFF718078)
+private val AlexBackground = Color(0xFF090B18)
+private val AlexPanel = Color(0xFF15182B)
+private val AlexPurple = Color(0xFF9B70FF)
+private val AlexLavender = Color(0xFFCE9BFF)
+private val AlexPink = Color(0xFFFF7FA8)
+private val AlexCyan = Color(0xFF69F0D1)
+private val AlexWhite = Color(0xFFF3F0FF)
+private val AlexMuted = Color(0xFFAAA8C5)
+private val AlexBorder = Color(0xFF34304F)
 
 private enum class AlexMode {
     READY, LISTENING, THINKING, SPEAKING
@@ -282,17 +284,16 @@ fun AlexVoiceScreen(
         }
     }
 
-    val microphonePermission =
-        rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { granted ->
-            if (granted) {
-                startListening()
-            } else {
-                mode = AlexMode.READY
-                status = "Разреши доступ к микрофону в настройках"
-            }
+    val microphonePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            startListening()
+        } else {
+            mode = AlexMode.READY
+            status = "Разреши доступ к микрофону в настройках"
         }
+    }
 
     DisposableEffect(context) {
         var alive = true
@@ -461,44 +462,93 @@ fun AlexVoiceScreen(
     }
 
     MaterialTheme(
-        colorScheme = lightColorScheme(
+        colorScheme = darkColorScheme(
             primary = AlexPurple,
             onPrimary = Color.White,
             secondary = AlexCyan,
-            onSecondary = Color.White,
+            onSecondary = AlexBackground,
             background = AlexBackground,
             onBackground = AlexWhite,
             surface = AlexPanel,
             onSurface = AlexWhite,
-            surfaceVariant = Color(0xFFE7F3EC),
+            surfaceVariant = Color(0xFF22223A),
             onSurfaceVariant = AlexMuted
         )
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = AlexBackground
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF101027),
+                            AlexBackground,
+                            Color(0xFF11182A)
+                        )
+                    )
+                )
         ) {
+            Canvas(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            AlexPurple.copy(alpha = 0.10f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.12f, size.height * 0.2f),
+                        radius = size.minDimension * 0.6f
+                    ),
+                    radius = size.minDimension * 0.6f,
+                    center = Offset(size.width * 0.12f, size.height * 0.2f)
+                )
+
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            AlexCyan.copy(alpha = 0.07f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.9f, size.height * 0.8f),
+                        radius = size.minDimension * 0.55f
+                    ),
+                    radius = size.minDimension * 0.55f,
+                    center = Offset(size.width * 0.9f, size.height * 0.8f)
+                )
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(46.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE5F5EB)),
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        AlexPurple.copy(alpha = 0.30f),
+                                        AlexCyan.copy(alpha = 0.16f)
+                                    )
+                                )
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.VolumeUp,
                             contentDescription = "Голос Алекса",
-                            tint = AlexPurple
+                            tint = AlexCyan,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
@@ -513,9 +563,10 @@ fun AlexVoiceScreen(
                         )
 
                         Text(
-                            text = "Голосовой ИИ · Vibe Chat",
+                            text = "NEON GALAXY  ·  VIBE CHAT",
                             color = AlexMuted,
-                            fontSize = 12.sp
+                            fontSize = 10.sp,
+                            letterSpacing = 1.sp
                         )
                     }
 
@@ -594,51 +645,93 @@ fun AlexVoiceScreen(
                             active = mode != AlexMode.READY,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(55.dp)
+                                .height(48.dp)
                         )
 
                         Spacer(Modifier.height(10.dp))
 
                         Surface(
-                            color = AlexPanel,
-                            shape = RoundedCornerShape(20.dp),
-                            shadowElevation = 3.dp,
+                            color = AlexPanel.copy(alpha = 0.94f),
+                            shape = RoundedCornerShape(22.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                AlexBorder.copy(alpha = 0.8f)
+                            ),
+                            shadowElevation = 8.dp,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(Modifier.padding(14.dp)) {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
                                 if (userText.isNotBlank()) {
-                                    Text(
-                                        text = "ТЫ",
-                                        color = AlexCyan,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(AlexCyan)
+                                        )
 
-                                    Spacer(Modifier.height(4.dp))
+                                        Spacer(Modifier.width(7.dp))
+
+                                        Text(
+                                            text = "ТЫ",
+                                            color = AlexCyan,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.5.sp
+                                        )
+                                    }
+
+                                    Spacer(Modifier.height(6.dp))
 
                                     Text(
                                         text = userText,
                                         color = AlexWhite,
-                                        fontSize = 14.sp
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp
                                     )
 
-                                    Spacer(Modifier.height(10.dp))
+                                    Spacer(Modifier.height(14.dp))
+
+                                    HorizontalDivider(
+                                        color = AlexBorder,
+                                        thickness = 1.dp
+                                    )
+
+                                    Spacer(Modifier.height(12.dp))
                                 }
 
-                                Text(
-                                    text = "АЛЕКС",
-                                    color = AlexPink,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(AlexPink)
+                                    )
 
-                                Spacer(Modifier.height(4.dp))
+                                    Spacer(Modifier.width(7.dp))
+
+                                    Text(
+                                        text = "АЛЕКС",
+                                        color = AlexPink,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.5.sp
+                                    )
+                                }
+
+                                Spacer(Modifier.height(6.dp))
 
                                 Text(
                                     text = alexText,
                                     color = AlexWhite,
                                     fontSize = 14.sp,
-                                    lineHeight = 20.sp
+                                    lineHeight = 21.sp
                                 )
                             }
                         }
@@ -655,7 +748,10 @@ fun AlexVoiceScreen(
                     Button(
                         onClick = {
                             if (mode == AlexMode.LISTENING) {
+                                ignoreRecognizerErrors = true
                                 recognizer?.stopListening()
+                                mode = AlexMode.READY
+                                status = "Запись остановлена"
                             } else if (
                                 mode != AlexMode.THINKING &&
                                 responseJob?.isActive != true
@@ -680,8 +776,8 @@ fun AlexVoiceScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AlexPurple,
                             contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFB7D9C5),
-                            disabledContentColor = Color.White
+                            disabledContainerColor = Color(0xFF51476D),
+                            disabledContentColor = AlexMuted
                         ),
                         modifier = Modifier.size(76.dp)
                     ) {
@@ -709,12 +805,19 @@ fun AlexVoiceScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE5F5EB))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        AlexPurple.copy(alpha = 0.24f),
+                                        AlexCyan.copy(alpha = 0.13f)
+                                    )
+                                )
+                            )
                     ) {
                         Icon(
                             imageVector = Icons.Default.Stop,
                             contentDescription = "Полностью остановить Алекса",
-                            tint = AlexPurple,
+                            tint = AlexCyan,
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -859,10 +962,10 @@ private fun AlexEnergyOrb(
             brush = Brush.radialGradient(
                 colors = listOf(
                     Color.White,
-                    Color(0xFFD9F7E5),
+                    Color(0xFFE7D9FF),
                     AlexLavender.copy(alpha = 0.95f),
-                    Color(0xFF45B985),
-                    Color(0xFF176D4C)
+                    Color(0xFF7952D9),
+                    Color(0xFF39216F)
                 ),
                 center = Offset(
                     cx - radius * 0.28f,
@@ -884,7 +987,7 @@ private fun AlexEnergyOrb(
         )
 
         drawArc(
-            color = Color.White.copy(alpha = 0.85f),
+            color = AlexCyan.copy(alpha = 0.95f),
             startAngle = rotation,
             sweepAngle = 85f,
             useCenter = false,
