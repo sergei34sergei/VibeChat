@@ -52,15 +52,18 @@ private data class PrivateMessage(
     val createdAt: Timestamp?
 )
 
-private val VibeChatBackground = Color(0xFF111214)
-private val VibeChatPanel = Color(0xFF1B1C20)
-private val VibeChatIncoming = Color(0xFF292A30)
-private val VibeChatOutgoing = Color(0xFF6550A5)
-private val VibeChatOutgoingDark = Color(0xFF514080)
-private val VibeChatText = Color(0xFFF4F2F8)
-private val VibeChatMuted = Color(0xFFA5A5AF)
-private val VibeChatAccent = Color(0xFFB9A2F5)
-private val VibeChatGreen = Color(0xFF70D7A1)
+// Vibe Chat 2.0 — светлая мята и коралловые акценты.
+private val VibeChatBackground = Color(0xFFF6FAF8)
+private val VibeChatPanel = Color(0xFFFFFFFF)
+private val VibeChatIncoming = Color(0xFFEAF2EF)
+private val VibeChatOutgoing = Color(0xFFFF806F)
+private val VibeChatOutgoingDark = Color(0xFFF46B60)
+private val VibeChatText = Color(0xFF24332F)
+private val VibeChatMuted = Color(0xFF7D8C86)
+private val VibeChatAccent = Color(0xFF3D8C79)
+private val VibeChatGreen = Color(0xFF42A982)
+private val VibeChatLine = Color(0xFFDDE8E2)
+private val VibeChatCoralPale = Color(0xFFFFE7E2)
 
 @Composable
 fun PrivateChatScreen(
@@ -157,10 +160,12 @@ fun PrivateChatScreen(
                 error = "Войди в аккаунт, чтобы открыть переписку."
                 loading = false
             }
+
             otherUserId.isBlank() -> {
                 error = "Не удалось определить собеседника."
                 loading = false
             }
+
             myId == otherUserId -> {
                 error = "Нельзя открыть личный чат с самим собой."
                 loading = false
@@ -278,7 +283,7 @@ fun PrivateChatScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(VibeChatBackground)
+                .background(VibeChatPanel)
                 .padding(horizontal = 10.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -294,14 +299,17 @@ fun PrivateChatScreen(
                 modifier = Modifier
                     .size(43.dp)
                     .clip(CircleShape)
-                    .background(VibeChatPanel),
+                    .background(VibeChatIncoming)
+                    .border(1.dp, VibeChatLine, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (otherAvatarBitmap != null) {
                     Image(
                         bitmap = otherAvatarBitmap.asImageBitmap(),
                         contentDescription = "Аватар собеседника",
-                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -360,12 +368,12 @@ fun PrivateChatScreen(
             Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(Color(0xFF2A2B30))
+                .background(VibeChatLine)
         )
 
         if (error.isNotBlank()) {
             Surface(
-                color = Color(0xFF35252B),
+                color = VibeChatCoralPale,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -373,7 +381,7 @@ fun PrivateChatScreen(
             ) {
                 Text(
                     error,
-                    color = Color(0xFFFFC6D0),
+                    color = Color(0xFF9B4139),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(11.dp)
                 )
@@ -382,12 +390,14 @@ fun PrivateChatScreen(
 
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
             contentPadding = PaddingValues(
                 horizontal = 12.dp,
                 vertical = 12.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             if (messages.isEmpty()) {
                 item(key = "chat_welcome") {
@@ -401,10 +411,15 @@ fun PrivateChatScreen(
                             modifier = Modifier
                                 .size(78.dp)
                                 .clip(CircleShape)
-                                .background(VibeChatPanel),
+                                .background(VibeChatIncoming)
+                                .border(1.dp, VibeChatLine, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("✦", color = VibeChatAccent, fontSize = 35.sp)
+                            Text(
+                                "✦",
+                                color = VibeChatAccent,
+                                fontSize = 35.sp
+                            )
                         }
 
                         Spacer(Modifier.height(18.dp))
@@ -477,9 +492,20 @@ fun PrivateChatScreen(
                                     )
                                 }
                             )
+                            .then(
+                                if (mine) {
+                                    Modifier
+                                } else {
+                                    Modifier.border(
+                                        1.dp,
+                                        VibeChatLine,
+                                        bubbleShape
+                                    )
+                                }
+                            )
                             .padding(
-                                horizontal = 11.dp,
-                                vertical = 7.dp
+                                horizontal = 12.dp,
+                                vertical = 8.dp
                             )
                     ) {
                         if (!mine) {
@@ -496,7 +522,7 @@ fun PrivateChatScreen(
 
                         Text(
                             message.text,
-                            color = VibeChatText,
+                            color = if (mine) Color.White else VibeChatText,
                             fontSize = 14.sp,
                             lineHeight = 19.sp
                         )
@@ -504,7 +530,7 @@ fun PrivateChatScreen(
                         Row(
                             modifier = Modifier
                                 .align(Alignment.End)
-                                .padding(top = 3.dp),
+                                .padding(top = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             message.createdAt?.let { timestamp ->
@@ -514,7 +540,7 @@ fun PrivateChatScreen(
                                         Locale.getDefault()
                                     ).format(Date(timestamp.toDate().time)),
                                     color = if (mine) {
-                                        Color(0xFFDCD0F8)
+                                        Color(0xFFFFF0ED)
                                     } else {
                                         VibeChatMuted
                                     },
@@ -526,7 +552,7 @@ fun PrivateChatScreen(
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     "✓",
-                                    color = Color(0xFFE0D6FF),
+                                    color = Color.White,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -551,6 +577,11 @@ fun PrivateChatScreen(
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
                         .background(VibeChatPanel)
+                        .border(
+                            1.dp,
+                            VibeChatLine,
+                            RoundedCornerShape(10.dp)
+                        )
                         .clickable {
                             if (input.length < 2000) {
                                 input = (input + emoji).take(2000)
@@ -568,8 +599,13 @@ fun PrivateChatScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(VibeChatBackground)
-                .padding(start = 10.dp, end = 10.dp, top = 5.dp, bottom = 8.dp),
+                .background(VibeChatPanel)
+                .padding(
+                    start = 10.dp,
+                    end = 10.dp,
+                    top = 7.dp,
+                    bottom = 8.dp
+                ),
             verticalAlignment = Alignment.Bottom
         ) {
             Row(
@@ -577,10 +613,10 @@ fun PrivateChatScreen(
                     .weight(1f)
                     .defaultMinSize(minHeight = 46.dp)
                     .clip(RoundedCornerShape(23.dp))
-                    .background(VibeChatPanel)
+                    .background(VibeChatBackground)
                     .border(
                         1.dp,
-                        Color(0xFF34353B),
+                        VibeChatLine,
                         RoundedCornerShape(23.dp)
                     )
                     .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -628,7 +664,7 @@ fun PrivateChatScreen(
                     .clip(CircleShape)
                     .background(
                         if (canSend) VibeChatOutgoing
-                        else VibeChatPanel
+                        else VibeChatIncoming
                     )
                     .clickable(enabled = canSend) {
                         val textToSend = input.trim()
@@ -654,7 +690,8 @@ fun PrivateChatScreen(
                                 }
                                 .addOnFailureListener { exception ->
                                     error = "Не удалось отправить сообщение: ${
-                                        exception.localizedMessage ?: "ошибка Firebase"
+                                        exception.localizedMessage
+                                            ?: "ошибка Firebase"
                                     }"
                                     sending = false
                                 }
