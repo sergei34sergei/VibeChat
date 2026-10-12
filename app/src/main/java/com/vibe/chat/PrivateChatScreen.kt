@@ -701,7 +701,7 @@ fun PrivateChatScreen(
                     }
                 }
                 Spacer(Modifier.height(7.dp))
-                val shownEmojis = (emojiSets[emojiCategory] ?: emojiSets["Vibe"].orEmpty()).filter { emojiSearch.isBlank() || emoji.contains(emojiSearch) }
+                val shownEmojis = (emojiSets[emojiCategory] ?: emojiSets["Vibe"].orEmpty()).filter { emojiSearch.isBlank() || it.contains(emojiSearch, ignoreCase = true) }
                 androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                     columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(8),
                     modifier = Modifier.fillMaxWidth().heightIn(max = 142.dp),
@@ -854,16 +854,3 @@ fun PrivateChatScreen(
         }
     }
 }
-                      )
-                                .addOnSuccessListener {
-                                    input = ""
-                                    sending = false
-                                }
-                                .addOnFailureListener { exception ->
-                                    error = "Не удалось отправить сообщение: ${
-                                        exception.localizedMessage ?: "ошибка Firebase"
-                                    }"
-                                    sending = false
-                                }
-                        }
-       
