@@ -1,4 +1,3 @@
-
 package com.vibe.chat
 
 import android.app.Activity
@@ -903,7 +902,7 @@ private fun VibeAvatar(
 
     if (bitmap != null) {
         androidx.compose.foundation.Image(
-            bitmap = androidx.compose.ui.graphics.asImageBitmap(bitmap),
+            bitmap = bitmap.asImageBitmap(),
             contentDescription = name,
             modifier = Modifier
                 .size(size.dp)
