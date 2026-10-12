@@ -58,6 +58,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 private val AlexBackground = Color(0xFF090B18)
 private val AlexPanel = Color(0xFF15182B)
@@ -563,7 +564,7 @@ fun AlexVoiceScreen(
                         )
 
                         Text(
-                            text = "NEON GALAXY  ·  VIBE CHAT",
+                            text = "VIBE AURORA  ·  AI VOICE",
                             color = AlexMuted,
                             fontSize = 10.sp,
                             letterSpacing = 1.sp
@@ -853,23 +854,23 @@ private fun AlexEnergyOrb(
     mode: AlexMode,
     modifier: Modifier = Modifier
 ) {
-    val transition = rememberInfiniteTransition(label = "alex_orb")
+    val transition = rememberInfiniteTransition(label = "alex_particle_orb")
 
     val pulse by transition.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.06f,
+        initialValue = 0.96f,
+        targetValue = 1.045f,
         animationSpec = infiniteRepeatable(
             animation = tween(
                 durationMillis = when (mode) {
-                    AlexMode.LISTENING -> 650
-                    AlexMode.THINKING -> 420
-                    AlexMode.SPEAKING -> 520
-                    AlexMode.READY -> 1900
+                    AlexMode.LISTENING -> 600
+                    AlexMode.THINKING -> 380
+                    AlexMode.SPEAKING -> 480
+                    AlexMode.READY -> 2200
                 }
             ),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "orb_pulse"
+        label = "particle_pulse"
     )
 
     val rotation by transition.animateFloat(
@@ -877,12 +878,33 @@ private fun AlexEnergyOrb(
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis =
-                    if (mode == AlexMode.THINKING) 2200 else 8000
+                durationMillis = when (mode) {
+                    AlexMode.LISTENING -> 4800
+                    AlexMode.THINKING -> 2200
+                    AlexMode.SPEAKING -> 3000
+                    AlexMode.READY -> 10000
+                }
             ),
             repeatMode = RepeatMode.Restart
         ),
-        label = "orb_rotation"
+        label = "particle_rotation"
+    )
+
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = (Math.PI * 2.0).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = when (mode) {
+                    AlexMode.LISTENING -> 1300
+                    AlexMode.THINKING -> 850
+                    AlexMode.SPEAKING -> 1050
+                    AlexMode.READY -> 3600
+                }
+            ),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "particle_drift"
     )
 
     val glow = when (mode) {
@@ -895,109 +917,254 @@ private fun AlexEnergyOrb(
     Canvas(modifier = modifier) {
         val cx = size.width / 2f
         val cy = size.height / 2f
-        val base = size.minDimension * 0.31f
-        val radius = base * pulse
 
+        val cloudRadius = size.minDimension * 0.365f * pulse
+        val particleCount = 176
+        val goldenAngle = Math.PI * (3.0 - sqrt(5.0))
+        val rotationRadians = Math.toRadians(rotation.toDouble())
+
+        val points = Array(particleCount) { Offset.Zero }
+        val depths = FloatArray(particleCount)
+        val particleSizes = FloatArray(particleCount)
+        val particleAlphas = FloatArray(particleCount)
+
+        // Мягкое свечение вокруг всей частицы-облака.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    glow.copy(alpha = 0.25f),
-                    glow.copy(alpha = 0.09f),
+                    glow.copy(alpha = 0.23f),
+                    AlexPurple.copy(alpha = 0.12f),
+                    AlexCyan.copy(alpha = 0.055f),
                     Color.Transparent
                 ),
                 center = Offset(cx, cy),
-                radius = radius * 2.5f
+                radius = cloudRadius * 1.8f
             ),
-            radius = radius * 2.5f,
+            radius = cloudRadius * 1.8f,
             center = Offset(cx, cy)
         )
 
+        // Внутреннее свечение создаёт ощущение энергии внутри сферы.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = 0.98f),
-                    AlexLavender.copy(alpha = 0.8f),
-                    AlexCyan.copy(alpha = 0.35f),
+                    Color.White.copy(alpha = 0.10f),
+                    glow.copy(alpha = 0.11f),
+                    AlexPurple.copy(alpha = 0.06f),
                     Color.Transparent
                 ),
-                center = Offset(
-                    cx - radius * 0.3f,
-                    cy - radius * 0.4f
-                ),
-                radius = radius * 1.8f
+                center = Offset(cx, cy),
+                radius = cloudRadius * 1.1f
             ),
-            radius = radius * 1.8f,
+            radius = cloudRadius * 1.1f,
             center = Offset(cx, cy)
         )
 
-        drawCircle(
-            color = glow.copy(alpha = 0.62f),
-            radius = radius * 1.42f,
-            center = Offset(cx, cy),
-            style = Stroke(width = 1.5.dp.toPx())
-        )
+        // Распределяем частицы по поверхности воображаемой сферы.
+        // Небольшое смещение по глубине создаёт объёмный эффект.
+        for (i in 0 until particleCount) {
+            val normalizedY =
+                1f - 2f * (i + 0.5f) / particleCount
 
-        drawCircle(
-            color = AlexLavender.copy(alpha = 0.65f),
-            radius = radius * 1.62f,
-            center = Offset(cx, cy),
-            style = Stroke(width = 1.dp.toPx())
-        )
+            val ringRadius = sqrt(
+                (1f - normalizedY * normalizedY).coerceAtLeast(0f)
+            )
 
-        for (i in 0 until 8) {
-            val angle = Math.toRadians(rotation + i * 45.0)
-            val orbit = radius * if (i % 2 == 0) 1.48f else 1.68f
-            val x = cx + cos(angle).toFloat() * orbit
-            val y = cy + sin(angle).toFloat() * orbit
-            val dotRadius = if (i % 2 == 0) 3.5f else 2.3f
+            val angle =
+                i * goldenAngle + rotationRadians
+
+            val x3d = cos(angle).toFloat() * ringRadius
+            val z3d = sin(angle).toFloat() * ringRadius
+
+            val floatOffset =
+                sin(drift + i * 0.37f).toFloat() * 0.035f
+
+            val depth = (z3d + 1f) / 2f
+            depths[i] = depth
+
+            val projectedX =
+                cx + x3d * cloudRadius +
+                    cos(drift * 0.65f + i * 0.17f).toFloat() *
+                    cloudRadius * floatOffset
+
+            val projectedY =
+                cy + normalizedY * cloudRadius +
+                    z3d * cloudRadius * 0.20f +
+                    sin(drift * 0.8f + i * 0.21f).toFloat() *
+                    cloudRadius * floatOffset
+
+            points[i] = Offset(projectedX, projectedY)
+
+            particleSizes[i] =
+                (0.75f + depth * 1.45f) *
+                    if (mode == AlexMode.SPEAKING) 1.12f else 1f
+
+            particleAlphas[i] =
+                0.28f + depth * 0.65f
+        }
+
+        // Тонкие связи между близкими частицами формируют
+        // живую нейронную сетку внутри энергетического облака.
+        val maxLinkDistance = cloudRadius * 0.245f
+        val maxLinkDistanceSquared =
+            maxLinkDistance * maxLinkDistance
+
+        for (i in 0 until particleCount) {
+            val first = points[i]
+
+            for (j in i + 1 until particleCount) {
+                val second = points[j]
+                val dx = first.x - second.x
+                val dy = first.y - second.y
+                val distanceSquared = dx * dx + dy * dy
+
+                if (distanceSquared < maxLinkDistanceSquared) {
+                    val distanceFactor =
+                        1f - distanceSquared / maxLinkDistanceSquared
+
+                    val depthFactor =
+                        (depths[i] + depths[j]) * 0.5f
+
+                    drawLine(
+                        color = glow.copy(
+                            alpha = 0.055f +
+                                distanceFactor * 0.12f * depthFactor
+                        ),
+                        start = first,
+                        end = second,
+                        strokeWidth = 0.55.dp.toPx()
+                    )
+                }
+            }
+        }
+
+        // Светящиеся частицы. Передний план ярче, задний мягче.
+        for (i in 0 until particleCount) {
+            val point = points[i]
+            val depth = depths[i]
+            val particleRadius =
+                particleSizes[i] * 0.72f * density
+
+            val baseColor = when {
+                i % 9 == 0 -> AlexCyan
+                i % 7 == 0 -> AlexPink
+                i % 5 == 0 -> AlexLavender
+                else -> glow
+            }
+
+            val alpha = particleAlphas[i]
+
+            if (depth > 0.58f) {
+                drawCircle(
+                    color = baseColor.copy(
+                        alpha = alpha * 0.13f
+                    ),
+                    radius = particleRadius * 3.5f,
+                    center = point
+                )
+            }
 
             drawCircle(
-                color = if (i % 2 == 0) glow else AlexWhite,
-                radius = dotRadius.dp.toPx(),
+                color = baseColor.copy(alpha = alpha),
+                radius = particleRadius,
+                center = point
+            )
+
+            if (depth > 0.78f && i % 3 == 0) {
+                drawCircle(
+                    color = Color.White.copy(
+                        alpha = alpha * 0.75f
+                    ),
+                    radius = particleRadius * 0.42f,
+                    center = point
+                )
+            }
+        }
+
+        // Несколько свободных частиц вокруг облака.
+        // Они подчёркивают движение и делают силуэт менее
+        // похожим на обычный геометрически ровный шар.
+        for (i in 0 until 24) {
+            val angle =
+                Math.toRadians(
+                    rotation * 0.72 + i * 137.5
+                ) + drift * 0.12
+
+            val spread =
+                cloudRadius * (
+                    1.08f +
+                        0.18f *
+                        (0.5f + 0.5f *
+                            sin(drift + i * 0.82f).toFloat())
+                    )
+
+            val x =
+                cx + cos(angle).toFloat() * spread
+
+            val y =
+                cy + sin(angle).toFloat() *
+                    spread * 0.78f
+
+            val sizeFactor =
+                if (i % 4 == 0) 1.8f else 1f
+
+            val particleColor =
+                if (i % 3 == 0) AlexCyan else AlexLavender
+
+            drawCircle(
+                color = particleColor.copy(
+                    alpha = 0.35f +
+                        0.25f *
+                        abs(sin(drift + i.toFloat()))
+                ),
+                radius = sizeFactor * density,
                 center = Offset(x, y)
             )
         }
 
+        // Внешнее тонкое кольцо энергии.
         drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(
-                    Color.White,
-                    Color(0xFFE7D9FF),
-                    AlexLavender.copy(alpha = 0.95f),
-                    Color(0xFF7952D9),
-                    Color(0xFF39216F)
-                ),
-                center = Offset(
-                    cx - radius * 0.28f,
-                    cy - radius * 0.35f
-                ),
-                radius = radius * 1.65f
-            ),
-            radius = radius,
-            center = Offset(cx, cy)
+            color = glow.copy(alpha = 0.23f),
+            radius = cloudRadius * 1.12f,
+            center = Offset(cx, cy),
+            style = Stroke(width = 0.8.dp.toPx())
         )
 
-        drawCircle(
-            color = Color.White.copy(alpha = 0.75f),
-            radius = radius * 0.14f,
-            center = Offset(
-                cx - radius * 0.38f,
-                cy - radius * 0.43f
+        // Световой акцент вращается вокруг сферы.
+        drawArc(
+            color = AlexCyan.copy(alpha = 0.78f),
+            startAngle = rotation,
+            sweepAngle = 55f,
+            useCenter = false,
+            topLeft = Offset(
+                cx - cloudRadius * 1.13f,
+                cy - cloudRadius * 1.13f
+            ),
+            size = Size(
+                cloudRadius * 2.26f,
+                cloudRadius * 2.26f
+            ),
+            style = Stroke(
+                width = 1.6.dp.toPx(),
+                cap = StrokeCap.Round
             )
         )
 
         drawArc(
-            color = AlexCyan.copy(alpha = 0.95f),
-            startAngle = rotation,
-            sweepAngle = 85f,
+            color = AlexPink.copy(alpha = 0.48f),
+            startAngle = rotation + 180f,
+            sweepAngle = 35f,
             useCenter = false,
             topLeft = Offset(
-                cx - radius * 1.15f,
-                cy - radius * 1.15f
+                cx - cloudRadius * 1.08f,
+                cy - cloudRadius * 1.08f
             ),
-            size = Size(radius * 2.3f, radius * 2.3f),
+            size = Size(
+                cloudRadius * 2.16f,
+                cloudRadius * 2.16f
+            ),
             style = Stroke(
-                width = 2.dp.toPx(),
+                width = 1.2.dp.toPx(),
                 cap = StrokeCap.Round
             )
         )
