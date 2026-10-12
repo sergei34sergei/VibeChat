@@ -1,4 +1,3 @@
-
 package com.vibe.chat
 
 import android.Manifest
@@ -59,14 +58,15 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-private val AlexBackground = Color(0xFF090A12)
-private val AlexPanel = Color(0xFF151725)
-private val AlexPurple = Color(0xFF9275F5)
-private val AlexLavender = Color(0xFFC5B7FF)
-private val AlexPink = Color(0xFFFF9CD6)
-private val AlexCyan = Color(0xFF72E7FF)
-private val AlexWhite = Color(0xFFF6F3FF)
-private val AlexMuted = Color(0xFFAAA9BF)
+// Светлая мятно-белая цветовая тема Vibe Chat.
+private val AlexBackground = Color(0xFFF3FAF6)
+private val AlexPanel = Color(0xFFFFFFFF)
+private val AlexPurple = Color(0xFF208A60)
+private val AlexLavender = Color(0xFF8BD9B0)
+private val AlexPink = Color(0xFFE58B9A)
+private val AlexCyan = Color(0xFF27A879)
+private val AlexWhite = Color(0xFF18352A)
+private val AlexMuted = Color(0xFF718078)
 
 private enum class AlexMode {
     READY, LISTENING, THINKING, SPEAKING
@@ -105,6 +105,7 @@ fun AlexVoiceScreen(
 
     fun stopSpeaking() {
         speechEngine?.stop()
+
         if (mode == AlexMode.SPEAKING) {
             mode = AlexMode.READY
             status = "Готов к разговору"
@@ -167,7 +168,7 @@ fun AlexVoiceScreen(
 
         responseJob = scope.launch {
             try {
-                // Берём только последние сообщения, чтобы не перегружать запрос.
+                // Используем последние сообщения для контекста разговора.
                 val history = conversation
                     .takeLast(8)
                     .joinToString("\n") { (speaker, text) ->
@@ -204,7 +205,7 @@ fun AlexVoiceScreen(
                 speakAnswer(answer)
 
             } catch (error: CancellationException) {
-                // Отмена запроса кнопкой «Стоп» — это нормальное действие.
+                // Отмена запроса кнопкой «Стоп» — нормальное действие.
                 throw error
             } catch (error: Exception) {
                 mode = AlexMode.READY
@@ -266,16 +267,17 @@ fun AlexVoiceScreen(
             }
         }
 
+    // Инициализация голосового движка.
     DisposableEffect(context) {
         var alive = true
+        lateinit var engine: TextToSpeech
 
-        val engine = TextToSpeech(context) { result ->
+        engine = TextToSpeech(context) { result ->
             if (!alive) return@TextToSpeech
 
             if (result == TextToSpeech.SUCCESS) {
                 val languageResult =
-                    speechEngine?.setLanguage(Locale("ru", "RU"))
-                        ?: TextToSpeech.ERROR
+                    engine.setLanguage(Locale("ru", "RU"))
 
                 speechReady =
                     languageResult != TextToSpeech.LANG_MISSING_DATA &&
@@ -338,6 +340,7 @@ fun AlexVoiceScreen(
         }
     }
 
+    // Инициализация распознавания речи.
     DisposableEffect(context) {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             onDispose { }
@@ -359,6 +362,7 @@ fun AlexVoiceScreen(
                     }
 
                     override fun onRmsChanged(rmsdB: Float) = Unit
+
                     override fun onBufferReceived(buffer: ByteArray?) = Unit
 
                     override fun onEndOfSpeech() {
@@ -409,7 +413,9 @@ fun AlexVoiceScreen(
                         }
                     }
 
-                    override fun onPartialResults(partialResults: Bundle?) = Unit
+                    override fun onPartialResults(
+                        partialResults: Bundle?
+                    ) = Unit
 
                     override fun onEvent(
                         eventType: Int,
@@ -426,7 +432,20 @@ fun AlexVoiceScreen(
         }
     }
 
-    MaterialTheme {
+    MaterialTheme(
+        colorScheme = lightColorScheme(
+            primary = AlexPurple,
+            onPrimary = Color.White,
+            secondary = AlexCyan,
+            onSecondary = Color.White,
+            background = AlexBackground,
+            onBackground = AlexWhite,
+            surface = AlexPanel,
+            onSurface = AlexWhite,
+            surfaceVariant = Color(0xFFE7F3EC),
+            onSurfaceVariant = AlexMuted
+        )
+    ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = AlexBackground
@@ -437,6 +456,7 @@ fun AlexVoiceScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Верхняя панель.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -445,13 +465,13 @@ fun AlexVoiceScreen(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(AlexPanel),
+                            .background(Color(0xFFE5F5EB)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.VolumeUp,
                             contentDescription = "Голос Алекса",
-                            tint = AlexLavender
+                            tint = AlexPurple
                         )
                     }
 
@@ -464,6 +484,7 @@ fun AlexVoiceScreen(
                             fontSize = 23.sp,
                             fontWeight = FontWeight.Bold
                         )
+
                         Text(
                             text = "Голосовой ИИ · Vibe Chat",
                             color = AlexMuted,
@@ -471,7 +492,6 @@ fun AlexVoiceScreen(
                         )
                     }
 
-                    // Вернуться на экран чатов.
                     IconButton(
                         onClick = {
                             stopEverything()
@@ -485,7 +505,6 @@ fun AlexVoiceScreen(
                         )
                     }
 
-                    // Переключиться в текстовый чат с Алексом.
                     IconButton(
                         onClick = {
                             stopEverything()
@@ -556,6 +575,7 @@ fun AlexVoiceScreen(
                         Surface(
                             color = AlexPanel,
                             shape = RoundedCornerShape(20.dp),
+                            shadowElevation = 3.dp,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(Modifier.padding(14.dp)) {
@@ -566,12 +586,15 @@ fun AlexVoiceScreen(
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold
                                     )
+
                                     Spacer(Modifier.height(4.dp))
+
                                     Text(
                                         text = userText,
                                         color = AlexWhite,
                                         fontSize = 14.sp
                                     )
+
                                     Spacer(Modifier.height(10.dp))
                                 }
 
@@ -581,7 +604,9 @@ fun AlexVoiceScreen(
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
+
                                 Spacer(Modifier.height(4.dp))
+
                                 Text(
                                     text = alexText,
                                     color = AlexWhite,
@@ -595,6 +620,7 @@ fun AlexVoiceScreen(
 
                 Spacer(Modifier.height(10.dp))
 
+                // Кнопки управления голосом.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -624,7 +650,9 @@ fun AlexVoiceScreen(
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AlexPurple,
-                            contentColor = Color.White
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFB7D9C5),
+                            disabledContentColor = Color.White
                         ),
                         modifier = Modifier.size(76.dp)
                     ) {
@@ -651,12 +679,12 @@ fun AlexVoiceScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(AlexPanel)
+                            .background(Color(0xFFE5F5EB))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Stop,
                             contentDescription = "Полностью остановить Алекса",
-                            tint = AlexLavender,
+                            tint = AlexPurple,
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -737,6 +765,7 @@ private fun AlexEnergyOrb(
         val base = size.minDimension * 0.31f
         val radius = base * pulse
 
+        // Мягкое свечение вокруг сферы.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -754,9 +783,9 @@ private fun AlexEnergyOrb(
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    AlexWhite.copy(alpha = 0.95f),
-                    glow.copy(alpha = 0.8f),
-                    AlexPurple.copy(alpha = 0.35f),
+                    Color.White.copy(alpha = 0.98f),
+                    AlexLavender.copy(alpha = 0.8f),
+                    AlexCyan.copy(alpha = 0.35f),
                     Color.Transparent
                 ),
                 center = Offset(
@@ -777,12 +806,13 @@ private fun AlexEnergyOrb(
         )
 
         drawCircle(
-            color = AlexLavender.copy(alpha = 0.42f),
+            color = AlexLavender.copy(alpha = 0.65f),
             radius = radius * 1.62f,
             center = Offset(cx, cy),
             style = Stroke(width = 1.dp.toPx())
         )
 
+        // Движущиеся точки на орбите.
         for (i in 0 until 8) {
             val angle = Math.toRadians(rotation + i * 45.0)
             val orbit = radius * if (i % 2 == 0) 1.48f else 1.68f
@@ -797,14 +827,15 @@ private fun AlexEnergyOrb(
             )
         }
 
+        // Основная мятная сфера.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFFFCF8FF),
-                    AlexLavender,
-                    glow.copy(alpha = 0.92f),
-                    Color(0xFF30214F),
-                    Color(0xFF100F20)
+                    Color.White,
+                    Color(0xFFD9F7E5),
+                    AlexLavender.copy(alpha = 0.95f),
+                    Color(0xFF45B985),
+                    Color(0xFF176D4C)
                 ),
                 center = Offset(
                     cx - radius * 0.28f,
@@ -816,8 +847,9 @@ private fun AlexEnergyOrb(
             center = Offset(cx, cy)
         )
 
+        // Световой блик.
         drawCircle(
-            color = Color.White.copy(alpha = 0.52f),
+            color = Color.White.copy(alpha = 0.75f),
             radius = radius * 0.14f,
             center = Offset(
                 cx - radius * 0.38f,
@@ -825,8 +857,9 @@ private fun AlexEnergyOrb(
             )
         )
 
+        // Вращающаяся световая дуга.
         drawArc(
-            color = Color.White.copy(alpha = 0.65f),
+            color = Color.White.copy(alpha = 0.85f),
             startAngle = rotation,
             sweepAngle = 85f,
             useCenter = false,
