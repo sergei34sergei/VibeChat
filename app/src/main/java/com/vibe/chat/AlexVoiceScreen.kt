@@ -1,3 +1,4 @@
+
 package com.vibe.chat
 
 import android.Manifest
@@ -58,7 +59,7 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-// Светлая мятно-белая цветовая тема Vibe Chat.
+// Vibe Chat 2.0: мятный, белый и мягкий коралловый.
 private val AlexBackground = Color(0xFFF3FAF6)
 private val AlexPanel = Color(0xFFFFFFFF)
 private val AlexPurple = Color(0xFF208A60)
@@ -69,7 +70,10 @@ private val AlexWhite = Color(0xFF18352A)
 private val AlexMuted = Color(0xFF718078)
 
 private enum class AlexMode {
-    READY, LISTENING, THINKING, SPEAKING
+    READY,
+    LISTENING,
+    THINKING,
+    SPEAKING
 }
 
 @Composable
@@ -87,16 +91,24 @@ fun AlexVoiceScreen(
         mutableStateOf("Привет! Я Алекс. Нажми на микрофон — и поговорим.")
     }
 
-    var recognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
-    var speechEngine by remember { mutableStateOf<TextToSpeech?>(null) }
+    var recognizer by remember {
+        mutableStateOf<SpeechRecognizer?>(null)
+    }
+    var speechEngine by remember {
+        mutableStateOf<TextToSpeech?>(null)
+    }
     var speechReady by remember { mutableStateOf(false) }
     var responseJob by remember { mutableStateOf<Job?>(null) }
     var ignoreRecognizerErrors by remember { mutableStateOf(false) }
+
+    // Токен не позволяет старому запросу перезаписать новый ответ.
+    var requestToken by remember { mutableStateOf(0) }
 
     val conversation = remember {
         mutableStateListOf<Pair<String, String>>()
     }
 
+    // Сохраняем используемую в проекте модель Firebase AI.
     val model = remember {
         Firebase.ai(
             backend = GenerativeBackend.googleAI()
@@ -112,8 +124,10 @@ fun AlexVoiceScreen(
         }
     }
 
-    // Останавливает генерацию, распознавание речи и озвучивание.
     fun stopEverything() {
+        // Инвалидируем любой ранее запущенный запрос.
+        requestToken += 1
+
         ignoreRecognizerErrors = true
 
         responseJob?.cancel()
@@ -156,19 +170,24 @@ fun AlexVoiceScreen(
     }
 
     fun askAlex(message: String) {
-        if (message.isBlank() || mode == AlexMode.THINKING) return
+        if (message.isBlank() || responseJob?.isActive == true) {
+            return
+        }
 
         stopSpeaking()
 
-        userText = message.trim()
-        conversation.add("Пользователь" to userText)
+        val cleanMessage = message.trim()
+        userText = cleanMessage
+        conversation.add("Пользователь" to cleanMessage)
+
+        requestToken += 1
+        val currentToken = requestToken
 
         mode = AlexMode.THINKING
         status = "Алекс обдумывает ответ…"
 
         responseJob = scope.launch {
             try {
-                // Используем последние сообщения для контекста разговора.
                 val history = conversation
                     .takeLast(8)
                     .joinToString("\n") { (speaker, text) ->
@@ -185,7 +204,7 @@ fun AlexVoiceScreen(
                     Не утверждай, что выполнил действие, если у тебя нет
                     инструмента для его выполнения.
 
-                    История:
+                    История разговора:
                     $history
 
                     Ответь на последнее сообщение пользователя.
@@ -193,6 +212,11 @@ fun AlexVoiceScreen(
 
                 val response = withContext(Dispatchers.IO) {
                     model.generateContent(prompt)
+                }
+
+                // Если запрос отменён или уже заменён, ничего не меняем.
+                if (currentToken != requestToken) {
+                    return@launch
                 }
 
                 val answer = response.text
@@ -205,15 +229,19 @@ fun AlexVoiceScreen(
                 speakAnswer(answer)
 
             } catch (error: CancellationException) {
-                // Отмена запроса кнопкой «Стоп» — нормальное действие.
                 throw error
             } catch (error: Exception) {
-                mode = AlexMode.READY
-                status = "Не удалось получить ответ"
-                alexText =
-                    "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
+                if (currentToken == requestToken) {
+                    mode = AlexMode.READY
+                    status = "Не удалось получить ответ"
+                    alexText =
+                        "Не удалось получить ответ. Проверь интернет и настройки Firebase AI."
+                }
             } finally {
-                responseJob = null
+                // Старый запрос не должен сбрасывать ссылку на новый.
+                if (currentToken == requestToken) {
+                    responseJob = null
+                }
             }
         }
     }
@@ -221,6 +249,11 @@ fun AlexVoiceScreen(
     fun startListening() {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             status = "На устройстве недоступно распознавание речи"
+            return
+        }
+
+        if (responseJob?.isActive == true) {
+            status = "Сначала останови текущий ответ"
             return
         }
 
@@ -234,7 +267,9 @@ fun AlexVoiceScreen(
 
         ignoreRecognizerErrors = false
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        val intent = Intent(
+            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+        ).apply {
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
@@ -243,7 +278,10 @@ fun AlexVoiceScreen(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ru-RU")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Говори, я слушаю")
+            putExtra(
+                RecognizerIntent.EXTRA_PROMPT,
+                "Говори, я слушаю"
+            )
         }
 
         try {
@@ -263,21 +301,22 @@ fun AlexVoiceScreen(
             if (granted) {
                 startListening()
             } else {
+                mode = AlexMode.READY
                 status = "Разреши доступ к микрофону в настройках"
             }
         }
 
-    // Инициализация голосового движка.
+    // Голосовой движок.
     DisposableEffect(context) {
         var alive = true
-        lateinit var engine: TextToSpeech
 
-        engine = TextToSpeech(context) { result ->
+        val engine = TextToSpeech(context) { result ->
             if (!alive) return@TextToSpeech
 
             if (result == TextToSpeech.SUCCESS) {
                 val languageResult =
-                    engine.setLanguage(Locale("ru", "RU"))
+                    speechEngine?.setLanguage(Locale("ru", "RU"))
+                        ?: TextToSpeech.ERROR
 
                 speechReady =
                     languageResult != TextToSpeech.LANG_MISSING_DATA &&
@@ -340,9 +379,10 @@ fun AlexVoiceScreen(
         }
     }
 
-    // Инициализация распознавания речи.
+    // Распознавание речи.
     DisposableEffect(context) {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+            recognizer = null
             onDispose { }
         } else {
             val speechRecognizer =
@@ -366,7 +406,8 @@ fun AlexVoiceScreen(
                     override fun onBufferReceived(buffer: ByteArray?) = Unit
 
                     override fun onEndOfSpeech() {
-                        mode = AlexMode.THINKING
+                        // Не устанавливаем THINKING как признак активного
+                        // запроса: сначала нужно получить распознанный текст.
                         status = "Распознаю речь…"
                     }
 
@@ -380,7 +421,7 @@ fun AlexVoiceScreen(
 
                             SpeechRecognizer.ERROR_NETWORK,
                             SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-                                "Проверь сеть распознавания"
+                                "Проверь подключение к сети"
 
                             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
                                 "Нет разрешения на микрофон"
@@ -391,7 +432,8 @@ fun AlexVoiceScreen(
                             SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
                                 "Распознавание занято. Попробуй ещё раз"
 
-                            else -> "Не удалось распознать речь"
+                            else ->
+                                "Не удалось распознать речь"
                         }
                     }
 
@@ -456,7 +498,6 @@ fun AlexVoiceScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Верхняя панель.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -620,7 +661,6 @@ fun AlexVoiceScreen(
 
                 Spacer(Modifier.height(10.dp))
 
-                // Кнопки управления голосом.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -630,7 +670,10 @@ fun AlexVoiceScreen(
                         onClick = {
                             if (mode == AlexMode.LISTENING) {
                                 recognizer?.stopListening()
-                            } else if (mode != AlexMode.THINKING) {
+                            } else if (
+                                mode != AlexMode.THINKING &&
+                                responseJob?.isActive != true
+                            ) {
                                 val granted =
                                     ContextCompat.checkSelfPermission(
                                         context,
@@ -662,7 +705,9 @@ fun AlexVoiceScreen(
                             } else {
                                 Icons.Default.Mic
                             },
-                            contentDescription = if (mode == AlexMode.LISTENING) {
+                            contentDescription = if (
+                                mode == AlexMode.LISTENING
+                            ) {
                                 "Завершить запись"
                             } else {
                                 "Говорить с Алексом"
@@ -673,7 +718,6 @@ fun AlexVoiceScreen(
 
                     Spacer(Modifier.width(22.dp))
 
-                    // Полная остановка: микрофон, генерация и голос.
                     IconButton(
                         onClick = { stopEverything() },
                         modifier = Modifier
@@ -765,7 +809,6 @@ private fun AlexEnergyOrb(
         val base = size.minDimension * 0.31f
         val radius = base * pulse
 
-        // Мягкое свечение вокруг сферы.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -812,7 +855,6 @@ private fun AlexEnergyOrb(
             style = Stroke(width = 1.dp.toPx())
         )
 
-        // Движущиеся точки на орбите.
         for (i in 0 until 8) {
             val angle = Math.toRadians(rotation + i * 45.0)
             val orbit = radius * if (i % 2 == 0) 1.48f else 1.68f
@@ -827,7 +869,6 @@ private fun AlexEnergyOrb(
             )
         }
 
-        // Основная мятная сфера.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -847,7 +888,6 @@ private fun AlexEnergyOrb(
             center = Offset(cx, cy)
         )
 
-        // Световой блик.
         drawCircle(
             color = Color.White.copy(alpha = 0.75f),
             radius = radius * 0.14f,
@@ -857,7 +897,6 @@ private fun AlexEnergyOrb(
             )
         )
 
-        // Вращающаяся световая дуга.
         drawArc(
             color = Color.White.copy(alpha = 0.85f),
             startAngle = rotation,
