@@ -1,6 +1,7 @@
 
 package com.vibe.chat
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,10 +13,10 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -28,9 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -224,7 +226,7 @@ fun VibeChatsListScreenV2(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = ChatsText
                     ),
-                    cursorBrush = Brush.solidColor(ChatsMint)
+                    cursorBrush = SolidColor(ChatsMint)
                 )
             }
 
@@ -449,9 +451,7 @@ private fun QuickChatCard(
                 modifier = Modifier
                     .size(39.dp)
                     .clip(RoundedCornerShape(13.dp))
-                    .background(
-                        accent.copy(alpha = 0.12f)
-                    ),
+                    .background(accent.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -503,9 +503,7 @@ private fun PrivateChatRow(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = user.name.firstOrNull()
-                    ?.uppercase()
-                    ?: "V",
+                text = user.name.firstOrNull()?.uppercase() ?: "V",
                 color = ChatsMint,
                 fontSize = 21.sp,
                 fontWeight = FontWeight.Bold
