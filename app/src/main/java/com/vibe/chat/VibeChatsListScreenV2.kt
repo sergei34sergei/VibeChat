@@ -3,16 +3,7 @@ package com.vibe.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -24,32 +15,33 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
 
-private val ChatsBg = Color(0xFFFAFAF9)
+private val ChatsBg = Color(0xFFF3FAF6)
 private val ChatsCard = Color(0xFFFFFFFF)
-private val ChatsCoral = Color(0xFFE85B58)
-private val ChatsMint = Color(0xFF75BDA7)
-private val ChatsText = Color(0xFF252B2A)
-private val ChatsMuted = Color(0xFF7A8581)
+private val ChatsMint = Color(0xFF208A60)
+private val ChatsMintLight = Color(0xFFE1F5E9)
+private val ChatsCoral = Color(0xFFE87979)
+private val ChatsText = Color(0xFF20372D)
+private val ChatsMuted = Color(0xFF718078)
+private val ChatsBorder = Color(0xFFDCEAE1)
 
 private data class ChatsScreenUser(
     val id: String,
@@ -68,34 +60,50 @@ fun VibeChatsListScreenV2(
     val db = remember { FirebaseFirestore.getInstance() }
 
     var search by remember { mutableStateOf("") }
-    var users by remember { mutableStateOf<Map<String, ChatsScreenUser>>(emptyMap()) }
-    var chatUserIds by remember { mutableStateOf<List<String>>(emptyList()) }
+    var users by remember {
+        mutableStateOf<Map<String, ChatsScreenUser>>(emptyMap())
+    }
+    var chatUserIds by remember {
+        mutableStateOf<List<String>>(emptyList())
+    }
+    var loadError by remember { mutableStateOf(false) }
 
     DisposableEffect(myId) {
         val usersListener = db.collection("users")
-            .addSnapshotListener { snapshot, _ ->
-                users = snapshot?.documents?.associate { doc ->
-                    doc.id to ChatsScreenUser(
-                        id = doc.id,
-                        name = doc.getString("name") ?: "Пользователь",
-                        phone = doc.getString("phone").orEmpty(),
-                        avatarBase64 = doc.getString("avatarBase64").orEmpty()
-                    )
-                }.orEmpty()
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    loadError = true
+                } else {
+                    loadError = false
+                    users = snapshot?.documents?.associate { doc ->
+                        doc.id to ChatsScreenUser(
+                            id = doc.id,
+                            name = doc.getString("name")
+                                ?.takeIf { it.isNotBlank() }
+                                ?: "Пользователь",
+                            phone = doc.getString("phone").orEmpty(),
+                            avatarBase64 = doc.getString("avatarBase64").orEmpty()
+                        )
+                    }.orEmpty()
+                }
             }
 
         val chatsListener = db.collection("chats")
             .whereArrayContains("participantIds", myId)
-            .addSnapshotListener { snapshot, _ ->
-                chatUserIds = snapshot?.documents
-                    ?.filter { it.id != "general" }
-                    ?.mapNotNull { doc ->
-                        (doc.get("participantIds") as? List<*>)
-                            ?.filterIsInstance<String>()
-                            ?.firstOrNull { it != myId }
-                    }
-                    ?.distinct()
-                    .orEmpty()
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    loadError = true
+                } else {
+                    chatUserIds = snapshot?.documents
+                        ?.filter { it.id != "general" }
+                        ?.mapNotNull { doc ->
+                            (doc.get("participantIds") as? List<*>)
+                                ?.filterIsInstance<String>()
+                                ?.firstOrNull { it != myId }
+                        }
+                        ?.distinct()
+                        .orEmpty()
+                }
             }
 
         onDispose {
@@ -129,60 +137,110 @@ fun VibeChatsListScreenV2(
             .background(ChatsBg)
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(Modifier.size(8.dp))
+        Spacer(Modifier.height(12.dp))
 
-        Text(
-            text = "Твои чаты",
-            fontSize = 27.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = ChatsText
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "VIBE MESSENGER",
+                    color = ChatsMint,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 2.sp
+                )
 
-        Text(
-            text = "Общайся, находи друзей, делись моментами",
-            fontSize = 13.sp,
-            color = ChatsMuted,
-            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
-        )
+                Spacer(Modifier.height(5.dp))
+
+                Text(
+                    text = "Твои чаты",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = ChatsText
+                )
+
+                Text(
+                    text = "Общайся. Находи друзей. Будь на связи.",
+                    fontSize = 12.sp,
+                    color = ChatsMuted,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(47.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(ChatsMint, ChatsCoral)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ChatBubbleOutline,
+                    contentDescription = "Vibe Chat",
+                    tint = Color.White,
+                    modifier = Modifier.size(25.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(17.dp))
                 .background(ChatsCard)
-                .padding(horizontal = 14.dp, vertical = 13.dp),
+                .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                Icons.Default.Search,
+                imageVector = Icons.Default.Search,
                 contentDescription = "Поиск",
                 tint = ChatsMint
             )
 
             Spacer(Modifier.width(10.dp))
 
-            BasicTextField(
-                value = search,
-                onValueChange = { search = it },
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = ChatsText
-                ),
-                decorationBox = { innerTextField ->
-                    if (search.isEmpty()) {
-                        Text(
-                            "Поиск по имени или номеру",
-                            color = ChatsMuted,
-                            fontSize = 14.sp
-                        )
-                    }
-                    innerTextField()
+            Box(Modifier.weight(1f)) {
+                if (search.isEmpty()) {
+                    Text(
+                        text = "Поиск по имени или номеру",
+                        color = ChatsMuted,
+                        fontSize = 14.sp
+                    )
                 }
-            )
+
+                BasicTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = ChatsText
+                    ),
+                    cursorBrush = Brush.solidColor(ChatsMint)
+                )
+            }
+
+            if (search.isNotEmpty()) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Очистить поиск",
+                    tint = ChatsMuted,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clickable { search = "" }
+                )
+            }
         }
 
-        Spacer(Modifier.size(14.dp))
+        Spacer(Modifier.height(14.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -193,6 +251,7 @@ fun VibeChatsListScreenV2(
                 title = "Общий чат",
                 subtitle = "Все вместе",
                 icon = Icons.Default.Group,
+                accent = ChatsMint,
                 onClick = onOpenGeneralChat
             )
 
@@ -201,58 +260,120 @@ fun VibeChatsListScreenV2(
                 title = "Найти людей",
                 subtitle = "Новые знакомства",
                 icon = Icons.Default.PersonSearch,
+                accent = ChatsCoral,
                 onClick = onFindPeople
             )
         }
 
-        Spacer(Modifier.size(20.dp))
+        Spacer(Modifier.height(20.dp))
 
-        Text(
-            "Личные разговоры",
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = ChatsText
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (search.isBlank()) {
+                    "Личные разговоры"
+                } else {
+                    "Результаты поиска"
+                },
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = ChatsText,
+                modifier = Modifier.weight(1f)
+            )
 
-        Spacer(Modifier.size(10.dp))
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = ChatsMintLight
+            ) {
+                Text(
+                    text = if (search.isBlank()) {
+                        privateUsers.size.toString()
+                    } else {
+                        filteredUsers.size.toString()
+                    },
+                    color = ChatsMint,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(
+                        horizontal = 10.dp,
+                        vertical = 5.dp
+                    )
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            if (privateUsers.isEmpty()) {
+            if (loadError) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFFFF0ED)
+                    ) {
+                        Text(
+                            text = "Не удалось обновить данные. Проверь подключение и настройки Firebase.",
+                            color = Color(0xFFB94E4E),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+
+            if (privateUsers.isEmpty() && search.isBlank()) {
                 item {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 26.dp),
+                            .padding(vertical = 28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            Icons.Default.ChatBubbleOutline,
-                            contentDescription = null,
-                            tint = ChatsMint,
-                            modifier = Modifier.size(40.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .background(ChatsMintLight),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ChatBubbleOutline,
+                                contentDescription = null,
+                                tint = ChatsMint,
+                                modifier = Modifier.size(35.dp)
+                            )
+                        }
 
-                        Spacer(Modifier.size(10.dp))
+                        Spacer(Modifier.height(13.dp))
 
                         Text(
-                            "Пока нет личных чатов",
+                            text = "Пока нет личных чатов",
                             color = ChatsText,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
                         )
 
                         Text(
-                            "Найди пользователя и начни разговор",
+                            text = "Найди пользователя и начни разговор",
                             color = ChatsMuted,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(top = 4.dp)
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 5.dp)
                         )
                     }
                 }
             } else {
-                items(privateUsers, key = { it.id }) { user ->
+                items(
+                    items = privateUsers,
+                    key = { it.id }
+                ) { user ->
                     PrivateChatRow(user = user) {
                         onOpenPrivateChat(user.id, user.name)
                     }
@@ -260,24 +381,40 @@ fun VibeChatsListScreenV2(
             }
 
             if (search.isNotBlank()) {
-                item {
-                    Text(
-                        "Пользователи",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = ChatsText,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                    )
+                val otherUsers = filteredUsers.filter { candidate ->
+                    privateUsers.none { it.id == candidate.id }
                 }
 
-                items(
-                    filteredUsers.filter { candidate ->
-                        privateUsers.none { it.id == candidate.id }
-                    },
-                    key = { "person_${it.id}" }
-                ) { user ->
-                    PrivateChatRow(user = user) {
-                        onOpenPrivateChat(user.id, user.name)
+                if (otherUsers.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Другие пользователи",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = ChatsText,
+                            modifier = Modifier.padding(
+                                top = 12.dp,
+                                bottom = 4.dp
+                            )
+                        )
+                    }
+
+                    items(
+                        items = otherUsers,
+                        key = { "person_${it.id}" }
+                    ) { user ->
+                        PrivateChatRow(user = user) {
+                            onOpenPrivateChat(user.id, user.name)
+                        }
+                    }
+                } else if (privateUsers.isEmpty()) {
+                    item {
+                        Text(
+                            text = "Ничего не найдено. Попробуй другое имя или номер.",
+                            color = ChatsMuted,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(vertical = 18.dp)
+                        )
                     }
                 }
             }
@@ -290,34 +427,52 @@ private fun QuickChatCard(
     modifier: Modifier = Modifier,
     title: String,
     subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
+    accent: Color,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(19.dp),
-        colors = CardDefaults.cardColors(containerColor = ChatsCard),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = ChatsCard
+        ),
+        border = BorderStroke(1.dp, ChatsBorder),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 0.dp
+        )
     ) {
-        Column(Modifier.padding(13.dp)) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = ChatsCoral,
-                modifier = Modifier.size(27.dp)
-            )
+        Column(
+            modifier = Modifier.padding(13.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(39.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(
+                        accent.copy(alpha = 0.12f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
 
-            Spacer(Modifier.size(12.dp))
+            Spacer(Modifier.height(11.dp))
 
             Text(
-                title,
+                text = title,
                 color = ChatsText,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
 
             Text(
-                subtitle,
+                text = subtitle,
                 color = ChatsMuted,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(top = 3.dp)
@@ -344,12 +499,14 @@ private fun PrivateChatRow(
             modifier = Modifier
                 .size(49.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFFFE7E4)),
+                .background(ChatsMintLight),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                user.name.firstOrNull()?.uppercase() ?: "V",
-                color = ChatsCoral,
+                text = user.name.firstOrNull()
+                    ?.uppercase()
+                    ?: "V",
+                color = ChatsMint,
                 fontSize = 21.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -357,16 +514,20 @@ private fun PrivateChatRow(
 
         Spacer(Modifier.width(12.dp))
 
-        Column(Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             Text(
-                user.name,
+                text = user.name,
                 color = ChatsText,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp
             )
 
             Text(
-                user.phone.ifBlank { "Пользователь Vibe Chat" },
+                text = user.phone.ifBlank {
+                    "Пользователь Vibe Chat"
+                },
                 color = ChatsMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 3.dp)
@@ -374,8 +535,8 @@ private fun PrivateChatRow(
         }
 
         Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = "Открыть",
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = "Открыть чат",
             tint = ChatsMint
         )
     }
