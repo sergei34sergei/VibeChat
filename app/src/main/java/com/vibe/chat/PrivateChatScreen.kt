@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,6 +19,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vibe.chat.ui.theme.*
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class MessageItem(
     val id: String,
@@ -34,6 +39,7 @@ fun PrivateChatScreen(
     onBackClick: () -> Unit
 ) {
     var messageText by remember { mutableStateOf("") }
+
     val messages = remember {
         mutableStateListOf(
             MessageItem("1", "Привет! Как дела?", "09:41", false),
@@ -44,39 +50,111 @@ fun PrivateChatScreen(
         )
     }
 
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+
+    fun sendMessage() {
+        val text = messageText.trim()
+        if (text.isNotEmpty()) {
+            val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault())
+                .format(Date())
+
+            messages.add(
+                MessageItem(
+                    id = System.currentTimeMillis().toString(),
+                    text = text,
+                    time = currentTime,
+                    isOutgoing = true,
+                    isRead = false
+                )
+            )
+
+            messageText = ""
+
+            coroutineScope.launch {
+                listState.animateScrollToItem(messages.size)
+            }
+        }
+    }
+
     Scaffold(
         containerColor = VibeDarkBackground,
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(VibeSurfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(companionName.take(1), color = VibePrimaryGreen, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = companionName.take(1).uppercase(),
+                                color = VibePrimaryGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp
+                            )
                         }
+
                         Spacer(modifier = Modifier.width(10.dp))
+
                         Column {
-                            Text(text = companionName, color = VibeTextWhite, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "в сети", color = VibePrimaryGreen, fontSize = 12.sp)
+                            Text(
+                                text = companionName,
+                                color = VibeTextWhite,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                text = "в сети",
+                                color = VibePrimaryGreen,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = VibeTextWhite)
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Назад",
+                            tint = VibeTextWhite
+                        )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { }) { Icon(Icons.Default.Call, contentDescription = "Звонок", tint = VibeTextWhite) }
-                    IconButton(onClick = { }) { Icon(Icons.Default.Videocam, contentDescription = "Видео", tint = VibeTextWhite) }
-                    IconButton(onClick = { }) { Icon(Icons.Default.MoreVert, contentDescription = "Меню", tint = VibeTextWhite) }
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = Icons.Default.Call,
+                            contentDescription = "Звонок",
+                            tint = VibeTextWhite
+                        )
+                    }
+
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = Icons.Default.Videocam,
+                            contentDescription = "Видеозвонок",
+                            tint = VibeTextWhite
+                        )
+                    }
+
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Меню",
+                            tint = VibeTextWhite
+                        )
+                    }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = VibeSurfaceColor)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = VibeSurfaceColor
+                )
             )
         },
         bottomBar = {
@@ -84,45 +162,74 @@ fun PrivateChatScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(VibeSurfaceColor)
+                    .navigationBarsPadding()
+                    .imePadding()
                     .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Bottom
             ) {
-                IconButton(onClick = { }) {
-                    Icon(Icons.Default.EmojiEmotions, contentDescription = "Эмодзи", tint = VibeTextGray)
+                IconButton(
+                    onClick = {},
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.EmojiEmotions,
+                        contentDescription = "Эмодзи",
+                        tint = VibeTextGray
+                    )
                 }
+
                 OutlinedTextField(
                     value = messageText,
                     onValueChange = { messageText = it },
-                    placeholder = { Text("Сообщение", color = VibeTextGray) },
+                    placeholder = {
+                        Text(
+                            text = "Сообщение",
+                            color = VibeTextGray
+                        )
+                    },
                     modifier = Modifier
                         .weight(1f)
-                        .height(50.dp),
+                        .heightIn(min = 48.dp, max = 120.dp),
                     shape = RoundedCornerShape(24.dp),
+                    maxLines = 4,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = VibeSurfaceVariant,
                         unfocusedContainerColor = VibeSurfaceVariant,
-                        focusedBorderColor = Color.Transparent,
+                        focusedBorderColor = VibePrimaryGreen,
                         unfocusedBorderColor = Color.Transparent,
+                        cursorColor = VibePrimaryGreen,
                         focusedTextColor = VibeTextWhite,
                         unfocusedTextColor = VibeTextWhite
                     ),
                     trailingIcon = {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            IconButton(onClick = { }) {
-                                Icon(Icons.Default.AttachFile, contentDescription = "Вложение", tint = VibeTextGray)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = {}) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachFile,
+                                    contentDescription = "Вложение",
+                                    tint = VibeTextGray
+                                )
                             }
-                            IconButton(onClick = { }) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = "Камера", tint = VibeTextGray)
+
+                            IconButton(onClick = {}) {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = "Камера",
+                                    tint = VibeTextGray
+                                )
                             }
                         }
                     }
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 FloatingActionButton(
                     onClick = {
                         if (messageText.isNotBlank()) {
-                            messages.add(MessageItem(System.currentTimeMillis().toString(), messageText, "09:45", true))
-                            messageText = ""
+                            sendMessage()
                         }
                     },
                     containerColor = VibePrimaryGreen,
@@ -130,20 +237,36 @@ fun PrivateChatScreen(
                     modifier = Modifier.size(48.dp),
                     shape = CircleShape
                 ) {
-                    Icon(Icons.Default.Mic, contentDescription = "Голосовое / Отправить")
+                    Icon(
+                        imageVector = if (messageText.isBlank()) {
+                            Icons.Default.Mic
+                        } else {
+                            Icons.Default.Send
+                        },
+                        contentDescription = if (messageText.isBlank()) {
+                            "Голосовое сообщение"
+                        } else {
+                            "Отправить сообщение"
+                        },
+                        modifier = Modifier.size(21.dp)
+                    )
                 }
             }
         }
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 10.dp)
         ) {
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            items(messages) { message ->
+            items(
+                items = messages,
+                key = { message -> message.id }
+            ) { message ->
                 MessageBubble(message = message)
             }
         }
@@ -152,8 +275,17 @@ fun PrivateChatScreen(
 
 @Composable
 fun MessageBubble(message: MessageItem) {
-    val bubbleColor = if (message.isOutgoing) VibeBubbleOutgoing else VibeBubbleIncoming
-    val alignment = if (message.isOutgoing) Alignment.End else Alignment.Start
+    val bubbleColor = if (message.isOutgoing) {
+        VibeBubbleOutgoing
+    } else {
+        VibeBubbleIncoming
+    }
+
+    val alignment = if (message.isOutgoing) {
+        Alignment.End
+    } else {
+        Alignment.Start
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -167,22 +299,46 @@ fun MessageBubble(message: MessageItem) {
                 bottomStart = if (message.isOutgoing) 16.dp else 4.dp,
                 bottomEnd = if (message.isOutgoing) 4.dp else 16.dp
             ),
-            modifier = Modifier.widthIn(max = 280.dp)
+            modifier = Modifier.widthIn(max = 300.dp)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text(text = message.text, color = VibeTextWhite, fontSize = 15.sp)
-                Spacer(modifier = Modifier.height(2.dp))
+            Column(
+                modifier = Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 8.dp
+                )
+            ) {
+                Text(
+                    text = message.text,
+                    color = VibeTextWhite,
+                    fontSize = 15.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
                 Row(
                     modifier = Modifier.align(Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(text = message.time, color = VibeTextGray, fontSize = 11.sp)
+                    Text(
+                        text = message.time,
+                        color = VibeTextGray,
+                        fontSize = 11.sp
+                    )
+
                     if (message.isOutgoing) {
                         Icon(
                             imageVector = Icons.Default.DoneAll,
-                            contentDescription = "Прочитано",
-                            tint = if (message.isRead) VibePrimaryGreen else VibeTextGray,
+                            contentDescription = if (message.isRead) {
+                                "Прочитано"
+                            } else {
+                                "Отправлено"
+                            },
+                            tint = if (message.isRead) {
+                                VibePrimaryGreen
+                            } else {
+                                VibeTextGray
+                            },
                             modifier = Modifier.size(14.dp)
                         )
                     }
