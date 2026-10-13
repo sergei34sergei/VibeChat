@@ -1,42 +1,38 @@
-package com.vibe.chat
+package com.vibe.chat.ui.theme
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-object VibeWhatsAppColors {
-    val Background = Color(0xFF0B141A)
-    val Surface = Color(0xFF111B21)
-    val SurfaceElevated = Color(0xFF202C33)
-    val Divider = Color(0xFF26343D)
-    val TextPrimary = Color(0xFFE9edef)
-    val TextSecondary = Color(0xFF8696A0)
-    val Accent = Color(0xFF25D366)
-    val AccentDark = Color(0xFF075E54)
-    val BubbleOutgoing = Color(0xFF005C4B)
-    val BubbleIncoming = Color(0xFF202C33)
-    val Unread = Color(0xFF25D366)
-    val Danger = Color(0xFFFF6B6B)
-}
+val VibeDarkBackground = Color(0xFF0A1110)
+val VibeSurfaceColor = Color(0xFF111D1A)
+val VibeSurfaceVariant = Color(0xFF182824)
+val VibePrimaryGreen = Color(0xFF00E676)
+val VibePrimaryGreenVariant = Color(0xFF00C853)
+val VibeOnPrimary = Color(0xFF003311)
+val VibeTextWhite = Color(0xFFE0E0E0)
+val VibeTextGray = Color(0xFF8A9A95)
+val VibeBubbleOutgoing = Color(0xFF004D30)
+val VibeBubbleIncoming = Color(0xFF162420)
+val VibeDivider = Color(0xFF1E332E)
 
-private val VibeDarkScheme = darkColorScheme(
-    primary = VibeWhatsAppColors.Accent,
-    onPrimary = Color(0xFF062A1B),
-    secondary = Color(0xFF53BDEB),
-    background = VibeWhatsAppColors.Background,
-    onBackground = VibeWhatsAppColors.TextPrimary,
-    surface = VibeWhatsAppColors.Surface,
-    onSurface = VibeWhatsAppColors.TextPrimary,
-    surfaceVariant = VibeWhatsAppColors.SurfaceElevated,
-    onSurfaceVariant = VibeWhatsAppColors.TextSecondary,
-    outline = VibeWhatsAppColors.Divider
+private val VibeDarkColorScheme = darkColorScheme(
+    primary = VibePrimaryGreen,
+    onPrimary = VibeOnPrimary,
+    primaryContainer = VibePrimaryGreenVariant,
+    background = VibeDarkBackground,
+    surface = VibeSurfaceColor,
+    surfaceVariant = VibeSurfaceVariant,
+    onBackground = VibeTextWhite,
+    onSurface = VibeTextWhite,
+    outline = VibeDivider
 )
 
 @Composable
 fun VibeWhatsAppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = VibeDarkScheme,
+        colorScheme = VibeDarkColorScheme,
         content = content
     )
 }
