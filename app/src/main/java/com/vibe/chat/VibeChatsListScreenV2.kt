@@ -1,6 +1,7 @@
 
 package com.vibe.chat
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,6 +36,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -145,8 +148,16 @@ fun VibeChatsListScreenV2(
     ) {
         Spacer(Modifier.height(8.dp))
 
-        // Компактная брендовая шапка Vibe Chat
-        VibeChatBrandHeader()
+        // Баннер по референсу пользователя: иллюстрация общения Vibe Chat.
+        Image(
+            painter = painterResource(R.drawable.vibe_home_banner),
+            contentDescription = "Vibe Chat — люди, общение и сообщения",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(156.dp)
+                .clip(RoundedCornerShape(18.dp))
+        )
 
         Spacer(Modifier.height(8.dp))
 
