@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -216,21 +217,17 @@ private fun VibeLogin() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
+        Image(
+            painter = painterResource(R.drawable.vibe_login_banner),
+            contentDescription = "Иллюстрация Vibe Chat — общение и сообщения",
+            contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(104.dp)
-                .clip(RoundedCornerShape(32.dp))
-                .background(Color(0xFF191B30)),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = "Робот VibeChat",
-                modifier = Modifier.size(96.dp)
-            )
-        }
+                .fillMaxWidth()
+                .height(154.dp)
+                .clip(RoundedCornerShape(22.dp))
+        )
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(18.dp))
 
         Text(
             "Vibe Chat",
@@ -2135,21 +2132,16 @@ private fun AlexChatScreen(
                             .padding(top = 46.dp, bottom = 28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Box(
+                        Image(
+                            painter = painterResource(R.drawable.alex_hero),
+                            contentDescription = "Робот Alex AI — твой AI-помощник",
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .size(116.dp)
-                                .clip(RoundedCornerShape(36.dp))
-                                .background(vibeGradient()),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.SmartToy,
-                                contentDescription = "Alex AI",
-                                tint = Color.White,
-                                modifier = Modifier.size(72.dp)
-                            )
-                        }
-                        Spacer(Modifier.height(20.dp))
+                                .fillMaxWidth()
+                                .height(300.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                        )
+                        Spacer(Modifier.height(16.dp))
                         Text(
                             "Alex AI",
                             color = VibeText,
