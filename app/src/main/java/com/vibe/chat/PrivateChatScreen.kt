@@ -75,16 +75,16 @@ private data class PrivateMessage(
     val readBy: List<String> = emptyList()
 )
 
-private val VibeChatBackground = Color(0xFF0D111A)
-private val VibeChatPanel = Color(0xFF151B25)
-private val VibeChatIncoming = Color(0xFF1A202B)
-private val VibeChatOutgoing = Color(0xFF203630)
-private val VibeChatOutgoingDark = Color(0xFF192B2B)
-private val VibeChatText = Color(0xFFE8F0F2)
-private val VibeChatMuted = Color(0xFF8D9AA6)
+private val VibeChatBackground = Color(0xFF111321)
+private val VibeChatPanel = Color(0xE6171A2B)
+private val VibeChatIncoming = Color(0xB8242B42)
+private val VibeChatOutgoing = Color(0xB52C7180)
+private val VibeChatOutgoingDark = Color(0xC01E5368)
+private val VibeChatText = Color(0xFFF0F3FF)
+private val VibeChatMuted = Color(0xFF9CA7C2)
 private val VibeChatAccent = Color(0xFFB5A0FF)
 private val VibeChatGreen = Color(0xFF78E8D0)
-private val VibeChatLine = Color(0xFF29343E)
+private val VibeChatLine = Color(0x665E6A91)
 
 private fun loadVibeImage(url: String): Bitmap? {
     return try {
